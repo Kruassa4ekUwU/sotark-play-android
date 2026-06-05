@@ -8,15 +8,16 @@ plugins {
 
 android {
     namespace  = "com.sotark.play"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.sotark.play"
         minSdk        = 26
-        targetSdk     = 34
+        targetSdk     = 35
         versionCode   = 1
         versionName   = "1.0.0"
-        buildConfigField("String", "BASE_URL", "\"https://sotark-play-server-production.up.railway.app/\"")
+        buildConfigField("String", "BASE_URL",
+            "\"https://sotark-play-server-production.up.railway.app/\"")
     }
 
     buildTypes {
