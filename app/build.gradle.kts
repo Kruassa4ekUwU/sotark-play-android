@@ -8,22 +8,20 @@ plugins {
 
 android {
     namespace  = "com.sotark.play"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.sotark.play"
         minSdk        = 26
-        targetSdk     = 35
+        targetSdk     = 34
         versionCode   = 1
         versionName   = "1.0.0"
-
-        // Change this to your real server URL before building
         buildConfigField("String", "BASE_URL", "\"https://sotark-play-server-production.up.railway.app/\"")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -50,7 +48,8 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigation)
+    implementation(libs.androidx.appcompat)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
@@ -64,6 +63,5 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines)
 
-    implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation(libs.androidx.ui.tooling)
 }
