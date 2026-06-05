@@ -18,7 +18,7 @@ android {
         versionName   = "1.0.0"
 
         // Change this to your real server URL before building
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000/\"")
+        buildConfigField("String", "BASE_URL", "\"https://sotark-play-server-production.up.railway.app/\"")
     }
 
     buildTypes {
