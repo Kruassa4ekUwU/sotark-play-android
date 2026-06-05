@@ -25,25 +25,15 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Make gradlew executable
+        run: git update-index --chmod=+x gradlew && chmod +x gradlew || true
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK artifact
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: sotark-play-debug
           path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-      - name: Build release APK (unsigned)
-        run: ./gradlew assembleRelease --no-daemon
-
-      - name: Upload release APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sotark-play-release-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
           retention-days: 30
