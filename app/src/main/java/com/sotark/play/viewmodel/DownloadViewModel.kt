@@ -4,8 +4,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
@@ -40,14 +42,43 @@ class DownloadViewModel @Inject constructor(
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
         .build()
 
-    private val notifManager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val CHANNEL_ID  = "sotark_download"
-    private val NOTIF_ID    = 1001
+    private val notifManager =
+        ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val CHANNEL_ID = "sotark_download"
+    private val NOTIF_ID   = 1001
 
     init { createNotifChannel() }
+
+    /** Проверяет установлено ли приложение по package name */
+    fun isInstalled(packageName: String): Boolean {
+        return try {
+            ctx.packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
+    /** Можно ли устанавливать из неизвестных источников */
+    fun canInstallUnknownSources(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ctx.packageManager.canRequestPackageInstalls()
+        } else true
+    }
+
+    /** Открыть настройки разрешения установки */
+    fun openInstallPermissionSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:${ctx.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            ctx.startActivity(intent)
+        }
+    }
 
     fun download(appName: String, apkUrl: String) {
         if (_state.value is DownloadState.Downloading) return
@@ -69,14 +100,15 @@ class DownloadViewModel @Inject constructor(
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) throw Exception("Сервер вернул ${response.code}")
 
-        val body        = response.body ?: throw Exception("Пустой ответ")
-        val totalBytes  = body.contentLength()
-        val outDir      = File(ctx.cacheDir, "apks").also { it.mkdirs() }
-        val outFile     = File(outDir, "${appName.replace(" ", "_")}.apk")
+        val body       = response.body ?: throw Exception("Пустой ответ")
+        val totalBytes = body.contentLength()
+        val outDir     = File(ctx.cacheDir, "apks").also { it.mkdirs() }
+        val safeName   = appName.replace(Regex("[^a-zA-Z0-9_]"), "_")
+        val outFile    = File(outDir, "$safeName.apk")
 
         FileOutputStream(outFile).use { out ->
             body.byteStream().use { input ->
-                val buf = ByteArray(8192)
+                val buf = ByteArray(16384)
                 var downloaded = 0L
                 var lastProgress = -1
                 var bytes: Int
@@ -97,11 +129,16 @@ class DownloadViewModel @Inject constructor(
     }
 
     fun installApk(file: File) {
-        val uri = FileProvider.getUriForFile(ctx, "\${ctx.packageName}.fileprovider", file)
+        val uri = FileProvider.getUriForFile(
+            ctx,
+            ctx.packageName + ".fileprovider",
+            file
+        )
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         ctx.startActivity(intent)
     }
@@ -110,7 +147,9 @@ class DownloadViewModel @Inject constructor(
 
     private fun createNotifChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(CHANNEL_ID, "Загрузки", NotificationManager.IMPORTANCE_LOW)
+            val ch = NotificationChannel(
+                CHANNEL_ID, "Загрузки", NotificationManager.IMPORTANCE_LOW
+            )
             notifManager.createNotificationChannel(ch)
         }
     }
