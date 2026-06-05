@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,11 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sotark.play.data.model.Review
 import com.sotark.play.ui.components.*
 import com.sotark.play.ui.theme.GreenPrimary
 import com.sotark.play.viewmodel.AppDetailViewModel
@@ -35,19 +36,27 @@ fun AppDetailScreen(
     detailViewModel: AppDetailViewModel = hiltViewModel(),
     downloadViewModel: DownloadViewModel = hiltViewModel()
 ) {
-    val state    by detailViewModel.state.collectAsState()
-    val dlState  by downloadViewModel.state.collectAsState()
+    val state   by detailViewModel.state.collectAsState()
+    val dlState by downloadViewModel.state.collectAsState()
 
     LaunchedEffect(appId) { detailViewModel.load(appId) }
 
-    // Авто-запуск установки когда файл готов
+    // Авто-установка когда файл скачан
     LaunchedEffect(dlState) {
         if (dlState is DownloadState.ReadyToInstall) {
             downloadViewModel.installApk((dlState as DownloadState.ReadyToInstall).file)
         }
     }
 
-    var showReviewDialog by remember { mutableStateOf(false) }
+    // Проверяем установлено ли приложение
+    val pkg       = state.app?.`package` ?: ""
+    val installed = remember(pkg) {
+        if (pkg.isNotEmpty()) downloadViewModel.isInstalled(pkg) else false
+    }
+    val canInstall = remember { downloadViewModel.canInstallUnknownSources() }
+
+    var showReviewDialog       by remember { mutableStateOf(false) }
+    var showPermissionDialog   by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -66,8 +75,7 @@ fun AppDetailScreen(
                 CircularProgressIndicator()
             }
             state.error != null -> Box(
-                Modifier.fillMaxSize().padding(24.dp),
-                contentAlignment = Alignment.Center
+                Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Ошибка загрузки")
@@ -81,6 +89,7 @@ fun AppDetailScreen(
                     Modifier.padding(padding),
                     contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
+
                     // ── Header ───────────────────────────────────────────
                     item {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -89,11 +98,26 @@ fun AppDetailScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(app.name, style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold)
-                                Text(app.developer, color = MaterialTheme.colorScheme.primary,
+                                Text(app.developer,
+                                    color = MaterialTheme.colorScheme.primary,
                                     style = MaterialTheme.typography.bodyMedium)
                                 Text(app.category,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall)
+                                // Бейдж "Установлено"
+                                if (installed) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.CheckCircle, null,
+                                            tint = GreenPrimary,
+                                            modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Установлено",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = GreenPrimary,
+                                            fontWeight = FontWeight.Medium)
+                                    }
+                                }
                             }
                         }
                     }
@@ -115,25 +139,35 @@ fun AppDetailScreen(
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
                     }
 
-                    // ── Download button ──────────────────────────────────
+                    // ── Download / Install button ─────────────────────────
                     item {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                             when (val dl = dlState) {
                                 is DownloadState.Idle -> {
                                     Button(
                                         onClick = {
-                                            app.apkUrl?.let {
-                                                downloadViewModel.download(app.name, it)
+                                            if (!canInstall) {
+                                                showPermissionDialog = true
+                                            } else {
+                                                app.apkUrl?.let {
+                                                    downloadViewModel.download(app.name, it)
+                                                }
                                             }
                                         },
                                         enabled  = app.apkUrl != null,
                                         shape    = RoundedCornerShape(10.dp),
-                                        colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                                        colors   = ButtonDefaults.buttonColors(
+                                            containerColor = if (installed) Color(0xFF1565C0)
+                                                             else GreenPrimary
+                                        ),
                                         modifier = Modifier.fillMaxWidth().height(48.dp)
                                     ) {
                                         Text(
-                                            if (app.apkUrl != null) "⬇  Скачать и установить"
-                                            else "APK недоступен",
+                                            when {
+                                                app.apkUrl == null -> "APK недоступен"
+                                                installed          -> "⬇  Обновить"
+                                                else               -> "⬇  Скачать и установить"
+                                            },
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -141,14 +175,13 @@ fun AppDetailScreen(
                                 is DownloadState.Downloading -> {
                                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Row(
-                                            verticalAlignment = Alignment.CenterVertically,
+                                            Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
-                                            modifier = Modifier.fillMaxWidth()
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("Скачивается...", fontWeight = FontWeight.Medium)
+                                            Text("Скачивается…", fontWeight = FontWeight.Medium)
                                             Text("${dl.progress}%",
-                                                color = GreenPrimary,
-                                                fontWeight = FontWeight.Bold)
+                                                color = GreenPrimary, fontWeight = FontWeight.Bold)
                                         }
                                         LinearProgressIndicator(
                                             progress = { dl.progress / 100f },
@@ -200,7 +233,7 @@ fun AppDetailScreen(
                             ) {
                                 app.screenshots.forEach { url ->
                                     AsyncImage(
-                                        model  = url, contentDescription = null,
+                                        model = url, contentDescription = null,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.height(180.dp).width(100.dp)
                                             .clip(RoundedCornerShape(8.dp))
@@ -215,7 +248,7 @@ fun AppDetailScreen(
                         item {
                             SectionHeader("Описание")
                             Text(app.description,
-                                style    = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
@@ -225,7 +258,7 @@ fun AppDetailScreen(
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment     = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Отзывы (${state.reviews.size})",
                                 style = MaterialTheme.typography.titleMedium,
@@ -244,7 +277,7 @@ fun AppDetailScreen(
                         }
                     } else {
                         items(state.reviews) { review ->
-                            ReviewItem(review = review)
+                            ReviewItem(review)
                             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                         }
                     }
@@ -253,7 +286,25 @@ fun AppDetailScreen(
         }
     }
 
-    // ── Review dialog ────────────────────────────────────────────────────────
+    // ── Диалог: нет разрешения на установку ──────────────────────────────────
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title   = { Text("Нужно разрешение") },
+            text    = { Text("Чтобы устанавливать приложения, разреши Sotark Play устанавливать из неизвестных источников в настройках.") },
+            confirmButton = {
+                Button(onClick = {
+                    showPermissionDialog = false
+                    downloadViewModel.openInstallPermissionSettings()
+                }) { Text("Открыть настройки") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDialog = false }) { Text("Отмена") }
+            }
+        )
+    }
+
+    // ── Review dialog ─────────────────────────────────────────────────────────
     if (showReviewDialog) {
         var author by remember { mutableStateOf("") }
         var rating by remember { mutableIntStateOf(5) }
@@ -305,11 +356,11 @@ private fun StatItem(value: String, label: String) {
 }
 
 @Composable
-private fun ReviewItem(review: com.sotark.play.data.model.Review) {
+private fun ReviewItem(review: Review) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically,
+        Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()) {
+            verticalAlignment = Alignment.CenterVertically) {
             Text(review.author, fontWeight = FontWeight.SemiBold)
             RatingStars(rating = review.rating.toFloat())
         }
