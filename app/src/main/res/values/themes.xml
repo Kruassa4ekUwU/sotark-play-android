@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.SotarkPlay" parent="android:Theme.Material.NoTitleBar" />
+</resources>
