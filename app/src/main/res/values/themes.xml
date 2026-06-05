@@ -1,3 +1,5 @@
 <resources>
-    <style name="Theme.SotarkPlay" parent="android:Theme.Material.NoTitleBar" />
+    <style name="Theme.SotarkPlay" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
 </resources>
