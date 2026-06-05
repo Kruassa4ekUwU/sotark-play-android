@@ -4,10 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -38,7 +39,7 @@ fun SotarkPlayApp() {
     val navBackStack  by navController.currentBackStackEntryAsState()
     val currentRoute  = navBackStack?.destination?.route
 
-    val bottomRoutes = listOf(Screen.Home.route, Screen.Search.route)
+    val bottomRoutes = listOf(Screen.Home.route, Screen.Search.route, Screen.Publish.route)
     val showBottom   = currentRoute in bottomRoutes
 
     Scaffold(
@@ -65,6 +66,16 @@ fun SotarkPlayApp() {
                         icon  = { Icon(Icons.Filled.Search, null) },
                         label = { Text("Поиск") }
                     )
+                    NavigationBarItem(
+                        selected = currentRoute == Screen.Publish.route,
+                        onClick  = {
+                            navController.navigate(Screen.Publish.route) {
+                                popUpTo(Screen.Home.route)
+                            }
+                        },
+                        icon  = { Icon(Icons.Filled.AddBox, null) },
+                        label = { Text("Загрузить") }
+                    )
                 }
             }
         }
@@ -83,6 +94,16 @@ fun SotarkPlayApp() {
                 SearchScreen(onAppClick = { id ->
                     navController.navigate(Screen.AppDetail.createRoute(id))
                 })
+            }
+            composable(Screen.Publish.route) {
+                PublishScreen(
+                    onBack    = { navController.popBackStack() },
+                    onSuccess = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                    }
+                )
             }
             composable(
                 route     = Screen.AppDetail.route,
