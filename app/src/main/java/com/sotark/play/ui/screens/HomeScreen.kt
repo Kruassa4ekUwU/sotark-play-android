@@ -1,0 +1,118 @@
+package com.sotark.play.ui.screens
+
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.sotark.play.ui.components.*
+import com.sotark.play.viewmodel.HomeViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    onAppClick: (Int) -> Unit,
+    viewModel: HomeViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Sotark Play", style = MaterialTheme.typography.titleLarge) },
+                actions = {
+                    IconButton(onClick = viewModel::load) {
+                        Icon(Icons.Filled.Refresh, "Refresh")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        when {
+            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            state.error != null -> Column(
+                Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("Ошибка подключения к серверу", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(state.error!!, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = viewModel::load) { Text("Повторить") }
+            }
+            else -> LazyColumn(
+                Modifier.padding(padding),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Featured / Top
+                if (state.topApps.isNotEmpty()) {
+                    item { SectionHeader("🔥 Топ приложений") }
+                    item {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(state.topApps.take(6)) { app ->
+                                FeaturedAppCard(app = app, onClick = { onAppClick(app.id) })
+                            }
+                        }
+                    }
+                }
+
+                // Categories
+                if (state.categories.isNotEmpty()) {
+                    item { SectionHeader("Категории") }
+                    item {
+                        Row(
+                            Modifier
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.categories.take(8).forEach { cat ->
+                                AssistChip(
+                                    onClick = {},
+                                    label  = { Text("${cat.category}  ${cat.count}") }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // New apps
+                if (state.newApps.isNotEmpty()) {
+                    item { SectionHeader("🆕 Новые") }
+                    items(state.newApps) { app ->
+                        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            AppCard(app = app, onClick = { onAppClick(app.id) })
+                        }
+                    }
+                }
+
+                // Empty
+                if (state.topApps.isEmpty() && state.newApps.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                            Text("Приложений пока нет", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                item { Spacer(Modifier.height(16.dp)) }
+            }
+        }
+    }
+}
