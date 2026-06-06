@@ -20,7 +20,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.sotark.play.data.AppLanguage
 import com.sotark.play.ui.Screen
 import com.sotark.play.ui.screens.*
 import com.sotark.play.ui.theme.SotarkPlayTheme
@@ -35,8 +34,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val settingsVm: SettingsViewModel = hiltViewModel()
-            val darkTheme by settingsVm.darkTheme.collectAsState()
-            val language  by settingsVm.language.collectAsState()
+            val darkTheme      by settingsVm.darkTheme.collectAsState()
+            val ukrainianTheme by settingsVm.ukrainianTheme.collectAsState()
+            val language       by settingsVm.language.collectAsState()
             val ctx = LocalContext.current
             LaunchedEffect(language) {
                 val locale = Locale(language.code)
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
                 config.setLocale(locale)
                 ctx.resources.updateConfiguration(config, ctx.resources.displayMetrics)
             }
-            SotarkPlayTheme(darkTheme = darkTheme) {
+            SotarkPlayTheme(darkTheme = darkTheme, ukrainianTheme = ukrainianTheme) {
                 SotarkPlayApp()
             }
         }
@@ -114,8 +114,8 @@ fun SotarkPlayApp() {
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onBack          = { navController.popBackStack() },
-                    onHistoryClick  = { navController.navigate(Screen.History.route) }
+                    onBack         = { navController.popBackStack() },
+                    onHistoryClick = { navController.navigate(Screen.History.route) }
                 )
             }
             composable(Screen.History.route) {
