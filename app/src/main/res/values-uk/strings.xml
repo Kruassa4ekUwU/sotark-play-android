@@ -49,8 +49,8 @@
     <string name="nothing_found">Нічого не знайдено за</string>
     <string name="enter_app_name">Введіть назву застосунку</string>
     <string name="connection_error">Помилка підключення до сервера</string>
-    <string name="your_name">Ваше ім'я</string>
-    <string name="comment">Коментар (необов'язково)</string>
+    <string name="your_name">Ваше ім&apos;я</string>
+    <string name="comment">Коментар (необов&apos;язково)</string>
     <string name="send">Надіслати</string>
     <string name="notif_channel">Завантаження</string>
     <string name="notif_downloading">Завантаження</string>
