@@ -1,8 +1,6 @@
 package com.sotark.play.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -15,7 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -23,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.sotark.play.BuildConfig
 import com.sotark.play.R
 import com.sotark.play.data.AppLanguage
@@ -37,14 +36,13 @@ fun SettingsScreen(
     onHistoryClick: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val darkTheme       by viewModel.darkTheme.collectAsState()
-    val language        by viewModel.language.collectAsState()
-    val ukrainianTheme  by viewModel.ukrainianTheme.collectAsState()
-    val easterUnlocked  by viewModel.easterEggUnlocked.collectAsState()
+    val darkTheme      by viewModel.darkTheme.collectAsState()
+    val language       by viewModel.language.collectAsState()
+    val ukrainianTheme by viewModel.ukrainianTheme.collectAsState()
+    val easterUnlocked by viewModel.easterEggUnlocked.collectAsState()
 
     var showEasterEgg by remember { mutableStateOf(false) }
 
-    // Показываем пасхалку когда разблокировано
     LaunchedEffect(easterUnlocked) {
         if (easterUnlocked) showEasterEgg = true
     }
@@ -60,8 +58,10 @@ fun SettingsScreen(
                         Text(stringResource(R.string.settings))
                         if (BuildConfig.IS_BETA) {
                             Surface(shape = MaterialTheme.shapes.small, color = Color(0xFFFFA000)) {
-                                Text("BETA", style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White, fontWeight = FontWeight.Bold,
+                                Text("BETA",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                             }
                         }
@@ -79,11 +79,14 @@ fun SettingsScreen(
             Modifier.padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+
             // Версия
             Card(shape = MaterialTheme.shapes.medium) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary)
@@ -96,9 +99,11 @@ fun SettingsScreen(
 
             // История
             Card(shape = MaterialTheme.shapes.medium, onClick = onHistoryClick) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Filled.History, null, tint = MaterialTheme.colorScheme.primary)
@@ -111,32 +116,42 @@ fun SettingsScreen(
 
             // Dark theme
             Card(shape = MaterialTheme.shapes.medium) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Filled.DarkMode, null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.dark_theme), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.dark_theme),
+                            style = MaterialTheme.typography.bodyLarge)
                     }
-                    Switch(checked = darkTheme, onCheckedChange = { viewModel.toggleDarkTheme() })
+                    Switch(
+                        checked = darkTheme,
+                        onCheckedChange = { viewModel.toggleDarkTheme() }
+                    )
                 }
             }
 
-            // Украинская тема (только если разблокирована)
+            // Украинская тема
             AnimatedVisibility(visible = easterUnlocked) {
-                Card(shape = MaterialTheme.shapes.medium,
+                Card(
+                    shape = MaterialTheme.shapes.medium,
                     colors = CardDefaults.cardColors(
-                        containerColor = if (ukrainianTheme) UkrainianBlue else MaterialTheme.colorScheme.surface
+                        containerColor = if (ukrainianTheme) UkrainianBlue
+                                         else MaterialTheme.colorScheme.surface
                     )
                 ) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Украинская тема", fontSize = 18.sp)
-                            Text("Секретно!", style = MaterialTheme.typography.labelSmall,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Украинская тема", fontSize = 16.sp)
+                            Text("Секретно!",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = UkrainianYellow)
                         }
                         Switch(
@@ -154,10 +169,12 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
 
             // Language
-            Text(stringResource(R.string.language),
+            Text(
+                stringResource(R.string.language),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp))
+                modifier = Modifier.padding(start = 4.dp)
+            )
 
             Card(shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.selectableGroup()) {
@@ -167,11 +184,14 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 Icon(Icons.Filled.Language, null,
-                                    tint = if (language == lang) MaterialTheme.colorScheme.primary
-                                           else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    tint = if (language == lang)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant)
                                 Column {
                                     Text(lang.label, style = MaterialTheme.typography.bodyLarge)
                                     if (lang == AppLanguage.UKRAINIAN && !easterUnlocked) {
@@ -181,8 +201,10 @@ fun SettingsScreen(
                                     }
                                 }
                             }
-                            RadioButton(selected = language == lang,
-                                onClick = { viewModel.setLanguage(lang) })
+                            RadioButton(
+                                selected = language == lang,
+                                onClick  = { viewModel.setLanguage(lang) }
+                            )
                         }
                         if (idx < AppLanguage.values().size - 1) {
                             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
@@ -193,34 +215,49 @@ fun SettingsScreen(
         }
     }
 
-    // ── Пасхалка диалог ───────────────────────────────────────────────────────
+    // Пасхалка диалог
     if (showEasterEgg) {
         Dialog(onDismissRequest = { showEasterEgg = false }) {
-            Card(shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = UkrainianBlue)) {
+            Card(
+                shape  = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = UkrainianBlue)
+            ) {
                 Column(
                     Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text("СЕКРЕТНАЯ ПАСХАЛКА!",
-                        color = UkrainianYellow, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Image(
-                        painter = painterResource(R.drawable.easter_egg_founder),
-                        contentDescription = null,
-                        modifier = Modifier.size(120.dp).clip(CircleShape)
-                            .border(3.dp, UkrainianYellow, CircleShape)
+                        color      = UkrainianYellow,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 18.sp)
+
+                    AsyncImage(
+                        model            = R.drawable.easter_egg_founder,
+                        contentDescription = "Основатель",
+                        contentScale     = ContentScale.Crop,
+                        modifier         = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
                     )
-                    Text("Основатель Sotark
+
+                    Text(
+                        "Основатель Sotark
 Вест-Индийское IT",
-                        color = UkrainianYellow, textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Medium)
+                        color      = UkrainianYellow,
+                        textAlign  = TextAlign.Center,
+                        fontWeight = FontWeight.Medium
+                    )
                     Text("Украинская тема разблокирована!",
-                        color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodySmall)
+
                     Button(
                         onClick = { showEasterEgg = false },
                         colors  = ButtonDefaults.buttonColors(containerColor = UkrainianYellow)
-                    ) { Text("Круто!", color = UkrainianBlue, fontWeight = FontWeight.Bold) }
+                    ) {
+                        Text("Круто!", color = UkrainianBlue, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
