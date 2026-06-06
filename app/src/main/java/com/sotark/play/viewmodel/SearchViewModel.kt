@@ -2,8 +2,8 @@ package com.sotark.play.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sotark.play.data.model.App
 import com.sotark.play.data.model.AgeRating
+import com.sotark.play.data.model.App
 import com.sotark.play.data.repository.AppRepository
 import com.sotark.play.data.repository.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,20 +19,20 @@ enum class SortOption(val label: String, val value: String) {
 }
 
 data class FilterState(
-    val category: String?        = null,
-    val sort: SortOption         = SortOption.DOWNLOADS,
-    val minRating: Float         = 0f,
-    val maxAge: AgeRating?       = null,
-    val showFilters: Boolean     = false
+    val category: String?    = null,
+    val sort: SortOption     = SortOption.DOWNLOADS,
+    val minRating: Float     = 0f,
+    val maxAge: AgeRating?   = null,
+    val showFilters: Boolean = false
 )
 
 data class SearchUiState(
-    val query: String            = "",
-    val results: List<App>       = emptyList(),
-    val suggestions: List<String>= emptyList(),
-    val filter: FilterState      = FilterState(),
-    val isLoading: Boolean       = false,
-    val error: String?           = null
+    val query: String             = "",
+    val results: List<App>        = emptyList(),
+    val suggestions: List<String> = emptyList(),
+    val filter: FilterState       = FilterState(),
+    val isLoading: Boolean        = false,
+    val error: String?            = null
 )
 
 @HiltViewModel
@@ -42,7 +42,6 @@ class SearchViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
-
     private var debounceJob: Job? = null
 
     fun onQueryChange(q: String) {
@@ -73,10 +72,14 @@ class SearchViewModel @Inject constructor(
                 when (r) {
                     is Result.Success -> {
                         var apps = r.data
-                        // Клиентская фильтрация по рейтингу и возрасту
-                        if (filter.minRating > 0f) apps = apps.filter { it.rating >= filter.minRating }
-                        if (filter.maxAge != null) apps = apps.filter {
-                            it.getAgeRatingEnum().minAge <= filter.maxAge.minAge
+                        if (filter.minRating > 0f) {
+                            apps = apps.filter { app -> app.rating >= filter.minRating }
+                        }
+                        val maxAge = filter.maxAge
+                        if (maxAge != null) {
+                            apps = apps.filter { app ->
+                                app.getAgeRatingEnum().minAge <= maxAge.minAge
+                            }
                         }
                         it.copy(results = apps, isLoading = false)
                     }
@@ -87,10 +90,27 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    fun toggleFilters() = _state.update { it.copy(filter = it.filter.copy(showFilters = !it.filter.showFilters)) }
-    fun setCategory(cat: String?) { _state.update { it.copy(filter = it.filter.copy(category = cat)) }; search() }
-    fun setSort(sort: SortOption) { _state.update { it.copy(filter = it.filter.copy(sort = sort)) }; search() }
-    fun setMinRating(r: Float)   { _state.update { it.copy(filter = it.filter.copy(minRating = r)) }; search() }
-    fun setMaxAge(age: AgeRating?){ _state.update { it.copy(filter = it.filter.copy(maxAge = age)) }; search() }
-    fun clearFilters() { _state.update { it.copy(filter = FilterState()) }; search() }
+    fun toggleFilters() = _state.update {
+        it.copy(filter = it.filter.copy(showFilters = !it.filter.showFilters))
+    }
+    fun setCategory(cat: String?) {
+        _state.update { it.copy(filter = it.filter.copy(category = cat)) }
+        search()
+    }
+    fun setSort(sort: SortOption) {
+        _state.update { it.copy(filter = it.filter.copy(sort = sort)) }
+        search()
+    }
+    fun setMinRating(r: Float) {
+        _state.update { it.copy(filter = it.filter.copy(minRating = r)) }
+        search()
+    }
+    fun setMaxAge(age: AgeRating?) {
+        _state.update { it.copy(filter = it.filter.copy(maxAge = age)) }
+        search()
+    }
+    fun clearFilters() {
+        _state.update { it.copy(filter = FilterState()) }
+        search()
+    }
 }
