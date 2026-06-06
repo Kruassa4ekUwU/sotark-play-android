@@ -12,17 +12,18 @@ class SettingsViewModel @Inject constructor(
     private val settings: AppSettings
 ) : ViewModel() {
 
-    val darkTheme:        StateFlow<Boolean>     = settings.darkTheme
-    val language:         StateFlow<AppLanguage> = settings.language
-    val ukrainianTheme:   StateFlow<Boolean>     = settings.ukrainianTheme
-    val easterEggUnlocked:StateFlow<Boolean>     = settings.easterEggUnlocked
+    val darkTheme:         StateFlow<Boolean>     = settings.darkTheme
+    val language:          StateFlow<AppLanguage> = settings.language
+    val ukrainianTheme:    StateFlow<Boolean>     = settings.ukrainianTheme
+    val easterEggUnlocked: StateFlow<Boolean>     = settings.easterEggUnlocked
+    val easterEggShown:    StateFlow<Boolean>     = settings.easterEggShown
 
     private var ukrainianTapCount = 0
 
     fun toggleDarkTheme() = settings.setDarkTheme(!darkTheme.value)
+
     fun setLanguage(lang: AppLanguage) {
         settings.setLanguage(lang)
-        // Пасхалка — 10 тапов по Ukrainian
         if (lang == AppLanguage.UKRAINIAN) {
             ukrainianTapCount++
             if (ukrainianTapCount >= 10) {
@@ -33,5 +34,7 @@ class SettingsViewModel @Inject constructor(
             ukrainianTapCount = 0
         }
     }
+
     fun toggleUkrainianTheme() = settings.setUkrainianTheme(!ukrainianTheme.value)
+    fun markEasterEggShown()   = settings.markEasterEggShown()
 }
