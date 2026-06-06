@@ -242,8 +242,7 @@ fun SettingsScreen(
                     )
 
                     Text(
-                        "Основатель Sotark
-Вест-Индийское IT",
+                        text = "Основатель Sotark / Вест-Индийское IT",
                         color      = UkrainianYellow,
                         textAlign  = TextAlign.Center,
                         fontWeight = FontWeight.Medium
