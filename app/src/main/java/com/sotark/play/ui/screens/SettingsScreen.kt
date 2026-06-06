@@ -1,5 +1,12 @@
 package com.sotark.play.ui.screens
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectableGroup
@@ -14,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,6 +35,7 @@ import com.sotark.play.R
 import com.sotark.play.data.AppLanguage
 import com.sotark.play.ui.theme.UkrainianBlue
 import com.sotark.play.ui.theme.UkrainianYellow
+import com.sotark.play.viewmodel.DownloadViewModel
 import com.sotark.play.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,17 +43,31 @@ import com.sotark.play.viewmodel.SettingsViewModel
 fun SettingsScreen(
     onBack: () -> Unit,
     onHistoryClick: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    downloadViewModel: DownloadViewModel = hiltViewModel()
 ) {
-    val darkTheme      by viewModel.darkTheme.collectAsState()
-    val language       by viewModel.language.collectAsState()
-    val ukrainianTheme by viewModel.ukrainianTheme.collectAsState()
-    val easterUnlocked by viewModel.easterEggUnlocked.collectAsState()
+    val darkTheme       by viewModel.darkTheme.collectAsState()
+    val language        by viewModel.language.collectAsState()
+    val ukrainianTheme  by viewModel.ukrainianTheme.collectAsState()
+    val easterUnlocked  by viewModel.easterEggUnlocked.collectAsState()
+    val easterShown     by viewModel.easterEggShown.collectAsState()
+    val ctx             = LocalContext.current
 
+    // Bug fix 1: показываем пасхалку только если разблокирована И ещё не показывалась
     var showEasterEgg by remember { mutableStateOf(false) }
-
     LaunchedEffect(easterUnlocked) {
-        if (easterUnlocked) showEasterEgg = true
+        if (easterUnlocked && !easterShown) {
+            showEasterEgg = true
+        }
+    }
+
+    // Bug fix 2: перепроверяем разрешение после возврата из настроек без перезапуска
+    var canInstall by remember { mutableStateOf(downloadViewModel.canInstallUnknownSources()) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // Перепроверяем сразу после возврата
+        canInstall = downloadViewModel.canInstallUnknownSources()
     }
 
     Scaffold(
@@ -59,10 +82,10 @@ fun SettingsScreen(
                         if (BuildConfig.IS_BETA) {
                             Surface(shape = MaterialTheme.shapes.small, color = Color(0xFFFFA000)) {
                                 Text("BETA",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
+                                    style      = MaterialTheme.typography.labelSmall,
+                                    color      = Color.White,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                    modifier   = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                             }
                         }
                     }
@@ -97,6 +120,46 @@ fun SettingsScreen(
                 }
             }
 
+            // Разрешение на установку — показываем если нет
+            if (!canInstall) {
+                Card(
+                    shape  = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Filled.Warning, null,
+                                tint = MaterialTheme.colorScheme.error)
+                            Column {
+                                Text("Нет разрешения на установку",
+                                    style      = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium)
+                                Text("Нажми чтобы разрешить",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        IconButton(onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:${ctx.packageName}")
+                                )
+                                permissionLauncher.launch(intent)
+                            }
+                        }) {
+                            Icon(Icons.Filled.OpenInNew, null)
+                        }
+                    }
+                }
+            }
+
             // История
             Card(shape = MaterialTheme.shapes.medium, onClick = onHistoryClick) {
                 Row(
@@ -127,17 +190,14 @@ fun SettingsScreen(
                         Text(stringResource(R.string.dark_theme),
                             style = MaterialTheme.typography.bodyLarge)
                     }
-                    Switch(
-                        checked = darkTheme,
-                        onCheckedChange = { viewModel.toggleDarkTheme() }
-                    )
+                    Switch(checked = darkTheme, onCheckedChange = { viewModel.toggleDarkTheme() })
                 }
             }
 
-            // Украинская тема
+            // Украинская тема (только если разблокирована)
             AnimatedVisibility(visible = easterUnlocked) {
                 Card(
-                    shape = MaterialTheme.shapes.medium,
+                    shape  = MaterialTheme.shapes.medium,
                     colors = CardDefaults.cardColors(
                         containerColor = if (ukrainianTheme) UkrainianBlue
                                          else MaterialTheme.colorScheme.surface
@@ -171,8 +231,8 @@ fun SettingsScreen(
             // Language
             Text(
                 stringResource(R.string.language),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style    = MaterialTheme.typography.titleSmall,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp)
             )
 
@@ -215,9 +275,12 @@ fun SettingsScreen(
         }
     }
 
-    // Пасхалка диалог
+    // Пасхалка — показывается только 1 раз
     if (showEasterEgg) {
-        Dialog(onDismissRequest = { showEasterEgg = false }) {
+        Dialog(onDismissRequest = {
+            showEasterEgg = false
+            viewModel.markEasterEggShown()
+        }) {
             Card(
                 shape  = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = UkrainianBlue)
@@ -231,18 +294,14 @@ fun SettingsScreen(
                         color      = UkrainianYellow,
                         fontWeight = FontWeight.Bold,
                         fontSize   = 18.sp)
-
                     AsyncImage(
-                        model            = R.drawable.easter_egg_founder,
+                        model              = R.drawable.easter_egg_founder,
                         contentDescription = "Основатель",
-                        contentScale     = ContentScale.Crop,
-                        modifier         = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
+                        contentScale       = ContentScale.Crop,
+                        modifier           = Modifier.size(120.dp).clip(CircleShape)
                     )
-
                     Text(
-                        text = "Основатель Sotark / Вест-Индийское IT",
+                        text       = "Основатель Sotark / Вест-Индийское IT",
                         color      = UkrainianYellow,
                         textAlign  = TextAlign.Center,
                         fontWeight = FontWeight.Medium
@@ -250,10 +309,12 @@ fun SettingsScreen(
                     Text("Украинская тема разблокирована!",
                         color = Color.White,
                         style = MaterialTheme.typography.bodySmall)
-
                     Button(
-                        onClick = { showEasterEgg = false },
-                        colors  = ButtonDefaults.buttonColors(containerColor = UkrainianYellow)
+                        onClick = {
+                            showEasterEgg = false
+                            viewModel.markEasterEggShown()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = UkrainianYellow)
                     ) {
                         Text("Круто!", color = UkrainianBlue, fontWeight = FontWeight.Bold)
                     }
