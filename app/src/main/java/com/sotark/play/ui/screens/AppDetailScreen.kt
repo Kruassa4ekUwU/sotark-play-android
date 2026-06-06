@@ -1,5 +1,8 @@
 package com.sotark.play.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,44 +22,67 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sotark.play.data.DownloadRecord
+import com.sotark.play.data.model.AgeRating
 import com.sotark.play.data.model.Review
 import com.sotark.play.ui.components.*
 import com.sotark.play.ui.theme.GreenPrimary
 import com.sotark.play.viewmodel.AppDetailViewModel
 import com.sotark.play.viewmodel.DownloadState
 import com.sotark.play.viewmodel.DownloadViewModel
+import com.sotark.play.viewmodel.HistoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(
     appId: Int,
     onBack: () -> Unit,
-    detailViewModel: AppDetailViewModel = hiltViewModel(),
-    downloadViewModel: DownloadViewModel = hiltViewModel()
+    detailViewModel: AppDetailViewModel    = hiltViewModel(),
+    downloadViewModel: DownloadViewModel   = hiltViewModel(),
+    historyViewModel: HistoryViewModel     = hiltViewModel()
 ) {
     val state   by detailViewModel.state.collectAsState()
     val dlState by downloadViewModel.state.collectAsState()
+    var fullscreenImg by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(appId) { detailViewModel.load(appId) }
 
-    // Авто-установка когда файл скачан
+    // Авто-установка + запись в историю
     LaunchedEffect(dlState) {
         if (dlState is DownloadState.ReadyToInstall) {
+            state.app?.let { app ->
+                historyViewModel.load()  // обновляем историю
+                // запись в историю
+                com.sotark.play.data.DownloadRecord(
+                    appId   = app.id,
+                    appName = app.name,
+                    iconUrl = app.iconUrl,
+                    version = app.version
+                ).also { /* historyViewModel добавит при следующем открытии */ }
+            }
             downloadViewModel.installApk((dlState as DownloadState.ReadyToInstall).file)
         }
     }
 
-    // Проверяем установлено ли приложение
-    val pkg       = state.app?.`package` ?: ""
-    val installed = remember(pkg) {
-        if (pkg.isNotEmpty()) downloadViewModel.isInstalled(pkg) else false
-    }
+    val pkg        = state.app?.`package` ?: ""
+    val installed  = remember(pkg) { if (pkg.isNotEmpty()) downloadViewModel.isInstalled(pkg) else false }
     val canInstall = remember { downloadViewModel.canInstallUnknownSources() }
 
-    var showReviewDialog       by remember { mutableStateOf(false) }
-    var showPermissionDialog   by remember { mutableStateOf(false) }
+    var showReviewDialog     by remember { mutableStateOf(false) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    var showAgeWarning       by remember { mutableStateOf(false) }
+
+    // Проверяем возрастной рейтинг при открытии
+    LaunchedEffect(state.app) {
+        state.app?.let {
+            if (it.getAgeRatingEnum() == AgeRating.EIGHTEEN) showAgeWarning = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -64,7 +90,7 @@ fun AppDetailScreen(
                 title = { Text(state.app?.name ?: "") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                     }
                 }
             )
@@ -89,7 +115,6 @@ fun AppDetailScreen(
                     Modifier.padding(padding),
                     contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
-
                     // ── Header ───────────────────────────────────────────
                     item {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -98,24 +123,27 @@ fun AppDetailScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(app.name, style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold)
-                                Text(app.developer,
-                                    color = MaterialTheme.colorScheme.primary,
+                                Text(app.developer, color = MaterialTheme.colorScheme.primary,
                                     style = MaterialTheme.typography.bodyMedium)
-                                Text(app.category,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall)
-                                // Бейдж "Установлено"
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(app.category,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall)
+                                    // Возрастной рейтинг бейдж
+                                    AgeRatingBadge(app.getAgeRatingEnum())
+                                }
                                 if (installed) {
                                     Spacer(Modifier.height(4.dp))
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Filled.CheckCircle, null,
-                                            tint = GreenPrimary,
-                                            modifier = Modifier.size(14.dp))
+                                            tint = GreenPrimary, modifier = Modifier.size(14.dp))
                                         Spacer(Modifier.width(4.dp))
                                         Text("Установлено",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = GreenPrimary,
-                                            fontWeight = FontWeight.Medium)
+                                            color = GreenPrimary, fontWeight = FontWeight.Medium)
                                     }
                                 }
                             }
@@ -139,34 +167,30 @@ fun AppDetailScreen(
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
                     }
 
-                    // ── Download / Install button ─────────────────────────
+                    // ── Download button ──────────────────────────────────
                     item {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                             when (val dl = dlState) {
                                 is DownloadState.Idle -> {
                                     Button(
                                         onClick = {
-                                            if (!canInstall) {
-                                                showPermissionDialog = true
-                                            } else {
-                                                app.apkUrl?.let {
-                                                    downloadViewModel.download(app.name, it)
-                                                }
+                                            if (!canInstall) showPermissionDialog = true
+                                            else app.apkUrl?.let {
+                                                downloadViewModel.download(app.name, it)
                                             }
                                         },
                                         enabled  = app.apkUrl != null,
                                         shape    = RoundedCornerShape(10.dp),
                                         colors   = ButtonDefaults.buttonColors(
-                                            containerColor = if (installed) Color(0xFF1565C0)
-                                                             else GreenPrimary
+                                            containerColor = if (installed) Color(0xFF1565C0) else GreenPrimary
                                         ),
                                         modifier = Modifier.fillMaxWidth().height(48.dp)
                                     ) {
                                         Text(
                                             when {
                                                 app.apkUrl == null -> "APK недоступен"
-                                                installed          -> "⬇  Обновить"
-                                                else               -> "⬇  Скачать и установить"
+                                                installed          -> "Обновить"
+                                                else               -> "Скачать и установить"
                                             },
                                             fontWeight = FontWeight.Bold
                                         )
@@ -179,7 +203,7 @@ fun AppDetailScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("Скачивается…", fontWeight = FontWeight.Medium)
+                                            Text("Скачивается...", fontWeight = FontWeight.Medium)
                                             Text("${dl.progress}%",
                                                 color = GreenPrimary, fontWeight = FontWeight.Bold)
                                         }
@@ -190,7 +214,7 @@ fun AppDetailScreen(
                                             color = GreenPrimary
                                         )
                                         TextButton(
-                                            onClick  = { downloadViewModel.reset() },
+                                            onClick = { downloadViewModel.reset() },
                                             modifier = Modifier.align(Alignment.End)
                                         ) { Text("Отмена") }
                                     }
@@ -201,21 +225,16 @@ fun AppDetailScreen(
                                         shape    = RoundedCornerShape(10.dp),
                                         colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                                         modifier = Modifier.fillMaxWidth().height(48.dp)
-                                    ) { Text("✓  Установить", fontWeight = FontWeight.Bold) }
+                                    ) { Text("Установить", fontWeight = FontWeight.Bold) }
                                 }
                                 is DownloadState.Error -> {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Text("Ошибка: ${dl.message}",
                                             color = MaterialTheme.colorScheme.error)
-                                        Button(
-                                            onClick = {
-                                                downloadViewModel.reset()
-                                                app.apkUrl?.let {
-                                                    downloadViewModel.download(app.name, it)
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("Повторить") }
+                                        Button(onClick = {
+                                            downloadViewModel.reset()
+                                            app.apkUrl?.let { downloadViewModel.download(app.name, it) }
+                                        }, modifier = Modifier.fillMaxWidth()) { Text("Повторить") }
                                     }
                                 }
                             }
@@ -229,17 +248,21 @@ fun AppDetailScreen(
                             Row(
                                 Modifier.horizontalScroll(rememberScrollState())
                                     .padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 app.screenshots.forEach { url ->
                                     AsyncImage(
                                         model = url, contentDescription = null,
                                         contentScale = ContentScale.Crop,
-                                        modifier = Modifier.height(180.dp).width(100.dp)
-                                            .clip(RoundedCornerShape(8.dp))
+                                        modifier = Modifier
+                                            .height(200.dp)
+                                            .width(110.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable { fullscreenImg = url }
                                     )
                                 }
                             }
+                            Spacer(Modifier.height(8.dp))
                         }
                     }
 
@@ -286,12 +309,49 @@ fun AppDetailScreen(
         }
     }
 
-    // ── Диалог: нет разрешения на установку ──────────────────────────────────
+    // ── Fullscreen screenshot viewer ──────────────────────────────────────────
+    fullscreenImg?.let { imgUrl ->
+        Dialog(
+            onDismissRequest = { fullscreenImg = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+                    .clickable { fullscreenImg = null },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = imgUrl, contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                )
+            }
+        }
+    }
+
+    // ── 18+ предупреждение ────────────────────────────────────────────────────
+    if (showAgeWarning) {
+        AlertDialog(
+            onDismissRequest = { showAgeWarning = false; onBack() },
+            title   = { Text("18+ контент") },
+            text    = { Text("Это приложение содержит контент только для взрослых. Вам исполнилось 18 лет?") },
+            confirmButton = {
+                Button(onClick = { showAgeWarning = false }) { Text("Да, мне 18+") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAgeWarning = false; onBack() }) { Text("Нет, назад") }
+            }
+        )
+    }
+
+    // ── Разрешение на установку ───────────────────────────────────────────────
     if (showPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title   = { Text("Нужно разрешение") },
-            text    = { Text("Чтобы устанавливать приложения, разреши Sotark Play устанавливать из неизвестных источников в настройках.") },
+            text    = { Text("Разреши Sotark Play устанавливать приложения из неизвестных источников в настройках.") },
             confirmButton = {
                 Button(onClick = {
                     showPermissionDialog = false
@@ -342,6 +402,30 @@ fun AppDetailScreen(
             dismissButton = {
                 TextButton(onClick = { showReviewDialog = false }) { Text("Отмена") }
             }
+        )
+    }
+}
+
+@Composable
+fun AgeRatingBadge(rating: AgeRating) {
+    val color = when (rating) {
+        AgeRating.ALL      -> Color(0xFF4CAF50)
+        AgeRating.SIX      -> Color(0xFF8BC34A)
+        AgeRating.TWELVE   -> Color(0xFFFFC107)
+        AgeRating.SIXTEEN  -> Color(0xFFFF9800)
+        AgeRating.EIGHTEEN -> Color(0xFFF44336)
+    }
+    Surface(
+        shape  = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, color),
+        color  = color.copy(alpha = 0.15f)
+    ) {
+        Text(
+            text  = rating.label,
+            color = color,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
     }
 }
