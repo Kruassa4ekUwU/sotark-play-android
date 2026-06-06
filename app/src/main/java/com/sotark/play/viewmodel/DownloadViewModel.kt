@@ -1,5 +1,6 @@
 package com.sotark.play.viewmodel
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -8,7 +9,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,48 +43,40 @@ class DownloadViewModel @Inject constructor(
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val state: StateFlow<DownloadState> = _state.asStateFlow()
 
+    private val notifManager = NotificationManagerCompat.from(ctx)
+    private val CHANNEL_ID   = "sotark_download"
+    private val NOTIF_ID     = 1001
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(180, TimeUnit.SECONDS)
         .build()
 
-    private val notifManager =
-        ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val CHANNEL_ID = "sotark_download"
-    private val NOTIF_ID   = 1001
-
     init { createNotifChannel() }
 
-    /** Проверяет установлено ли приложение по package name */
-    fun isInstalled(packageName: String): Boolean {
-        return try {
-            ctx.packageManager.getPackageInfo(packageName, 0)
-            true
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
-    }
+    fun isInstalled(packageName: String): Boolean = try {
+        ctx.packageManager.getPackageInfo(packageName, 0); true
+    } catch (e: PackageManager.NameNotFoundException) { false }
 
-    /** Можно ли устанавливать из неизвестных источников */
-    fun canInstallUnknownSources(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    fun canInstallUnknownSources(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             ctx.packageManager.canRequestPackageInstalls()
-        } else true
-    }
+        else true
 
-    /** Открыть настройки разрешения установки */
     fun openInstallPermissionSettings() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                data = Uri.parse("package:${ctx.packageName}")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            ctx.startActivity(intent)
+            ctx.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${ctx.packageName}")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
         }
     }
 
     fun download(appName: String, apkUrl: String) {
         if (_state.value is DownloadState.Downloading) return
+        // Cleanup old cached APKs first
+        cleanCache()
         viewModelScope.launch {
             _state.value = DownloadState.Downloading(0)
             try {
@@ -89,19 +84,21 @@ class DownloadViewModel @Inject constructor(
                 _state.value = DownloadState.ReadyToInstall(file)
                 notifManager.cancel(NOTIF_ID)
             } catch (e: Exception) {
-                _state.value = DownloadState.Error(e.message ?: "Ошибка скачивания")
+                _state.value = DownloadState.Error(e.message ?: "Download error")
                 notifManager.cancel(NOTIF_ID)
             }
         }
     }
 
-    private fun doDownload(appName: String, url: String): File {
-        val request  = Request.Builder().url(url).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) throw Exception("Сервер вернул ${response.code}")
+    private fun cleanCache() {
+        File(ctx.cacheDir, "apks").listFiles()?.forEach { it.delete() }
+    }
 
-        val body       = response.body ?: throw Exception("Пустой ответ")
-        val totalBytes = body.contentLength()
+    private fun doDownload(appName: String, url: String): File {
+        val resp = client.newCall(Request.Builder().url(url).build()).execute()
+        if (!resp.isSuccessful) throw Exception("Server error ${resp.code}")
+        val body       = resp.body ?: throw Exception("Empty response")
+        val total      = body.contentLength()
         val outDir     = File(ctx.cacheDir, "apks").also { it.mkdirs() }
         val safeName   = appName.replace(Regex("[^a-zA-Z0-9_]"), "_")
         val outFile    = File(outDir, "$safeName.apk")
@@ -109,18 +106,14 @@ class DownloadViewModel @Inject constructor(
         FileOutputStream(outFile).use { out ->
             body.byteStream().use { input ->
                 val buf = ByteArray(16384)
-                var downloaded = 0L
-                var lastProgress = -1
-                var bytes: Int
-                while (input.read(buf).also { bytes = it } != -1) {
-                    out.write(buf, 0, bytes)
-                    downloaded += bytes
-                    val progress = if (totalBytes > 0)
-                        (downloaded * 100 / totalBytes).toInt() else 0
-                    if (progress != lastProgress) {
-                        lastProgress = progress
-                        _state.value = DownloadState.Downloading(progress)
-                        showProgressNotif(appName, progress)
+                var downloaded = 0L; var lastPct = -1; var n: Int
+                while (input.read(buf).also { n = it } != -1) {
+                    out.write(buf, 0, n); downloaded += n
+                    val pct = if (total > 0) (downloaded * 100 / total).toInt() else 0
+                    if (pct != lastPct) {
+                        lastPct = pct
+                        _state.value = DownloadState.Downloading(pct)
+                        showNotif(appName, pct)
                     }
                 }
             }
@@ -129,40 +122,43 @@ class DownloadViewModel @Inject constructor(
     }
 
     fun installApk(file: File) {
-        val uri = FileProvider.getUriForFile(
-            ctx,
-            ctx.packageName + ".fileprovider",
-            file
+        val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", file)
+        ctx.startActivity(
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
         )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        ctx.startActivity(intent)
     }
 
-    fun reset() { _state.value = DownloadState.Idle }
+    fun reset() {
+        cleanCache()
+        _state.value = DownloadState.Idle
+    }
 
     private fun createNotifChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(
-                CHANNEL_ID, "Загрузки", NotificationManager.IMPORTANCE_LOW
-            )
-            notifManager.createNotificationChannel(ch)
+            ctx.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(
+                    NotificationChannel(CHANNEL_ID, "Downloads", NotificationManager.IMPORTANCE_LOW)
+                )
         }
     }
 
-    private fun showProgressNotif(name: String, progress: Int) {
-        val notif = NotificationCompat.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Скачивание: $name")
-            .setContentText("$progress%")
-            .setProgress(100, progress, progress == 0)
-            .setOngoing(true)
-            .setSilent(true)
-            .build()
-        notifManager.notify(NOTIF_ID, notif)
+    private fun showNotif(name: String, pct: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ActivityCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) return
+
+        notifManager.notify(NOTIF_ID,
+            NotificationCompat.Builder(ctx, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle("Sotark Play — $name")
+                .setContentText("$pct%")
+                .setProgress(100, pct, pct == 0)
+                .setOngoing(true).setSilent(true).build()
+        )
     }
 }
