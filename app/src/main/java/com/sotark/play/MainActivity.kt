@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
@@ -38,8 +37,6 @@ class MainActivity : ComponentActivity() {
             val settingsVm: SettingsViewModel = hiltViewModel()
             val darkTheme by settingsVm.darkTheme.collectAsState()
             val language  by settingsVm.language.collectAsState()
-
-            // Apply locale
             val ctx = LocalContext.current
             LaunchedEffect(language) {
                 val locale = Locale(language.code)
@@ -48,7 +45,6 @@ class MainActivity : ComponentActivity() {
                 config.setLocale(locale)
                 ctx.resources.updateConfiguration(config, ctx.resources.displayMetrics)
             }
-
             SotarkPlayTheme(darkTheme = darkTheme) {
                 SotarkPlayApp()
             }
@@ -74,28 +70,28 @@ fun SotarkPlayApp() {
                         onClick  = { navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Home.route) { inclusive = true } } },
                         icon  = { Icon(Icons.Filled.Home, null) },
-                        label = { Text(stringResource(com.sotark.play.R.string.home)) }
+                        label = { Text(stringResource(R.string.home)) }
                     )
                     NavigationBarItem(
                         selected = currentRoute == Screen.Search.route,
                         onClick  = { navController.navigate(Screen.Search.route) {
                             popUpTo(Screen.Home.route) } },
                         icon  = { Icon(Icons.Filled.Search, null) },
-                        label = { Text(stringResource(com.sotark.play.R.string.search)) }
+                        label = { Text(stringResource(R.string.search)) }
                     )
                     NavigationBarItem(
                         selected = currentRoute == Screen.Publish.route,
                         onClick  = { navController.navigate(Screen.Publish.route) {
                             popUpTo(Screen.Home.route) } },
                         icon  = { Icon(Icons.Filled.AddBox, null) },
-                        label = { Text(stringResource(com.sotark.play.R.string.upload)) }
+                        label = { Text(stringResource(R.string.upload)) }
                     )
                     NavigationBarItem(
                         selected = currentRoute == Screen.Settings.route,
                         onClick  = { navController.navigate(Screen.Settings.route) {
                             popUpTo(Screen.Home.route) } },
                         icon  = { Icon(Icons.Filled.Settings, null) },
-                        label = { Text(stringResource(com.sotark.play.R.string.settings)) }
+                        label = { Text(stringResource(R.string.settings)) }
                     )
                 }
             }
@@ -117,7 +113,16 @@ fun SotarkPlayApp() {
                 )
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(onBack = { navController.popBackStack() })
+                SettingsScreen(
+                    onBack          = { navController.popBackStack() },
+                    onHistoryClick  = { navController.navigate(Screen.History.route) }
+                )
+            }
+            composable(Screen.History.route) {
+                HistoryScreen(
+                    onBack     = { navController.popBackStack() },
+                    onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) }
+                )
             }
             composable(Screen.AppDetail.route,
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
