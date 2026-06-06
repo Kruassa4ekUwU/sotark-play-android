@@ -13,11 +13,7 @@ enum class AppLanguage(val code: String, val label: String) {
     ENGLISH("en", "English"),
     RUSSIAN("ru", "Русский"),
     UKRAINIAN("uk", "Українська"),
-    HEBREW("iw", "עברית")
-}
-
-enum class AppTheme {
-    SYSTEM, DARK, LIGHT, UKRAINIAN
+    HEBREW("he", "עברית")  // fix: "iw" устарел, используем "he"
 }
 
 @Singleton
@@ -33,8 +29,12 @@ class AppSettings @Inject constructor(
     private val _ukrainianTheme = MutableStateFlow(prefs.getBoolean("ukrainian_theme", false))
     val ukrainianTheme: StateFlow<Boolean> = _ukrainianTheme.asStateFlow()
 
+    // fix: храним показана ли пасхалка уже — не показываем повторно
     private val _easterEggUnlocked = MutableStateFlow(prefs.getBoolean("easter_egg", false))
     val easterEggUnlocked: StateFlow<Boolean> = _easterEggUnlocked.asStateFlow()
+
+    private val _easterEggShown = MutableStateFlow(prefs.getBoolean("easter_egg_shown", false))
+    val easterEggShown: StateFlow<Boolean> = _easterEggShown.asStateFlow()
 
     private val _language = MutableStateFlow(
         AppLanguage.values().find { it.code == prefs.getString("language", "en") }
@@ -54,6 +54,11 @@ class AppSettings @Inject constructor(
             .apply()
         _easterEggUnlocked.value = true
         _ukrainianTheme.value = true
+    }
+
+    fun markEasterEggShown() {
+        prefs.edit().putBoolean("easter_egg_shown", true).apply()
+        _easterEggShown.value = true
     }
 
     fun setUkrainianTheme(enabled: Boolean) {
