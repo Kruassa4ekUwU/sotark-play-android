@@ -12,7 +12,12 @@ import javax.inject.Singleton
 enum class AppLanguage(val code: String, val label: String) {
     ENGLISH("en", "English"),
     RUSSIAN("ru", "Русский"),
-    UKRAINIAN("uk", "Українська")
+    UKRAINIAN("uk", "Українська"),
+    HEBREW("iw", "עברית")
+}
+
+enum class AppTheme {
+    SYSTEM, DARK, LIGHT, UKRAINIAN
 }
 
 @Singleton
@@ -25,6 +30,12 @@ class AppSettings @Inject constructor(
     private val _darkTheme = MutableStateFlow(prefs.getBoolean("dark_theme", false))
     val darkTheme: StateFlow<Boolean> = _darkTheme.asStateFlow()
 
+    private val _ukrainianTheme = MutableStateFlow(prefs.getBoolean("ukrainian_theme", false))
+    val ukrainianTheme: StateFlow<Boolean> = _ukrainianTheme.asStateFlow()
+
+    private val _easterEggUnlocked = MutableStateFlow(prefs.getBoolean("easter_egg", false))
+    val easterEggUnlocked: StateFlow<Boolean> = _easterEggUnlocked.asStateFlow()
+
     private val _language = MutableStateFlow(
         AppLanguage.values().find { it.code == prefs.getString("language", "en") }
             ?: AppLanguage.ENGLISH
@@ -34,6 +45,20 @@ class AppSettings @Inject constructor(
     fun setDarkTheme(enabled: Boolean) {
         prefs.edit().putBoolean("dark_theme", enabled).apply()
         _darkTheme.value = enabled
+    }
+
+    fun unlockEasterEgg() {
+        prefs.edit()
+            .putBoolean("easter_egg", true)
+            .putBoolean("ukrainian_theme", true)
+            .apply()
+        _easterEggUnlocked.value = true
+        _ukrainianTheme.value = true
+    }
+
+    fun setUkrainianTheme(enabled: Boolean) {
+        prefs.edit().putBoolean("ukrainian_theme", enabled).apply()
+        _ukrainianTheme.value = enabled
     }
 
     fun setLanguage(lang: AppLanguage) {
