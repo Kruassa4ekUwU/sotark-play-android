@@ -12,8 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.sotark.play.R
 import com.sotark.play.ui.components.*
 import com.sotark.play.viewmodel.HomeViewModel
 
@@ -28,10 +30,10 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sotark Play", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("Sotark Play") },
                 actions = {
                     IconButton(onClick = viewModel::load) {
-                        Icon(Icons.Filled.Refresh, "Refresh")
+                        Icon(Icons.Filled.Refresh, null)
                     }
                 }
             )
@@ -46,20 +48,20 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text("Ошибка подключения к серверу", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.connection_error),
+                    style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(state.error!!, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = viewModel::load) { Text("Повторить") }
+                Button(onClick = viewModel::load) { Text(stringResource(R.string.retry)) }
             }
             else -> LazyColumn(
                 Modifier.padding(padding),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Featured / Top
                 if (state.topApps.isNotEmpty()) {
-                    item { SectionHeader("🔥 Топ приложений") }
+                    item { SectionHeader(stringResource(R.string.top_apps)) }
                     item {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -71,46 +73,38 @@ fun HomeScreen(
                         }
                     }
                 }
-
-                // Categories
                 if (state.categories.isNotEmpty()) {
-                    item { SectionHeader("Категории") }
+                    item { SectionHeader(stringResource(R.string.categories)) }
                     item {
                         Row(
-                            Modifier
-                                .horizontalScroll(rememberScrollState())
+                            Modifier.horizontalScroll(rememberScrollState())
                                 .padding(horizontal = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             state.categories.take(8).forEach { cat ->
-                                AssistChip(
-                                    onClick = {},
-                                    label  = { Text("${cat.category}  ${cat.count}") }
-                                )
+                                AssistChip(onClick = {},
+                                    label = { Text("${cat.category}  ${cat.count}") })
                             }
                         }
                     }
                 }
-
-                // New apps
                 if (state.newApps.isNotEmpty()) {
-                    item { SectionHeader("🆕 Новые") }
+                    item { SectionHeader(stringResource(R.string.new_apps)) }
                     items(state.newApps) { app ->
                         Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                             AppCard(app = app, onClick = { onAppClick(app.id) })
                         }
                     }
                 }
-
-                // Empty
                 if (state.topApps.isEmpty() && state.newApps.isEmpty()) {
                     item {
-                        Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                            Text("Приложений пока нет", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(Modifier.fillMaxWidth().padding(48.dp),
+                            contentAlignment = Alignment.Center) {
+                            Text("No apps yet",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
-
                 item { Spacer(Modifier.height(16.dp)) }
             }
         }
