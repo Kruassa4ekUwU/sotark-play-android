@@ -25,6 +25,10 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install build tools
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;35.0.0" --sdk_root=$ANDROID_HOME
+
       - name: Make gradlew executable
         run: chmod +x gradlew
 
@@ -49,8 +53,7 @@ jobs:
           retention-days: 30
 
       - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/sotark-play.keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/sotark-play.keystore
 
       - name: Build Stable Release APK
         run: ./gradlew assembleStableRelease --no-daemon
@@ -69,8 +72,10 @@ jobs:
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Upload Signed Stable Release APK
+      - name: Upload Signed Stable Release
         uses: actions/upload-artifact@v4
         with:
           name: sotark-play-stable-release-signed
@@ -94,8 +99,10 @@ jobs:
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Upload Signed Beta Release APK
+      - name: Upload Signed Beta Release
         uses: actions/upload-artifact@v4
         with:
           name: sotark-play-beta-release-signed
