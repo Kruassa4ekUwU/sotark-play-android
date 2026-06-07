@@ -2,6 +2,7 @@ package com.sotark.play.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sotark.play.data.SoundManager
 import com.sotark.play.data.model.App
 import com.sotark.play.data.model.Category
 import com.sotark.play.data.repository.AppRepository
@@ -12,29 +13,33 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
-    val topApps: List<App>      = emptyList(),
-    val newApps: List<App>      = emptyList(),
+    val topApps: List<App>         = emptyList(),
+    val newApps: List<App>         = emptyList(),
     val categories: List<Category> = emptyList(),
-    val isLoading: Boolean      = false,
-    val error: String?          = null
+    val isLoading: Boolean         = false,
+    val error: String?             = null
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repo: AppRepository
+    private val repo: AppRepository,
+    private val sound: SoundManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
-    init { load() }
+    init {
+        sound.playLaunch()
+        load()
+    }
 
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val top  = repo.getTop()
+            val top    = repo.getTop()
             val newest = repo.getApps(sort = "newest")
-            val cats = repo.getCategories()
+            val cats   = repo.getCategories()
             _state.update { s ->
                 s.copy(
                     isLoading  = false,
