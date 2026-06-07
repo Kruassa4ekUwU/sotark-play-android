@@ -1,10 +1,13 @@
 package com.sotark.play
 
-import android.content.res.Configuration
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
@@ -20,15 +23,23 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.sotark.play.data.SoundManager
 import com.sotark.play.ui.Screen
 import com.sotark.play.ui.screens.*
 import com.sotark.play.ui.theme.SotarkPlayTheme
 import com.sotark.play.viewmodel.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
+import android.content.res.Configuration
+import androidx.core.os.LocaleListCompat
+import androidx.appcompat.app.AppCompatDelegate
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var soundManager: SoundManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -37,102 +48,121 @@ class MainActivity : ComponentActivity() {
             val darkTheme      by settingsVm.darkTheme.collectAsState()
             val ukrainianTheme by settingsVm.ukrainianTheme.collectAsState()
             val language       by settingsVm.language.collectAsState()
-            val ctx = LocalContext.current
+
+            // Смена языка без перезапуска Activity через AppCompatDelegate
             LaunchedEffect(language) {
-                val locale = Locale(language.code)
-                Locale.setDefault(locale)
-                val config = Configuration(ctx.resources.configuration)
-                config.setLocale(locale)
-                ctx.resources.updateConfiguration(config, ctx.resources.displayMetrics)
+                val locale = LocaleListCompat.forLanguageTags(language.code)
+                AppCompatDelegate.setApplicationLocales(locale)
             }
+
             SotarkPlayTheme(darkTheme = darkTheme, ukrainianTheme = ukrainianTheme) {
-                SotarkPlayApp()
+                SotarkPlayApp(soundManager = soundManager)
             }
         }
     }
 }
 
 @Composable
-fun SotarkPlayApp() {
+fun SotarkPlayApp(soundManager: SoundManager) {
     val navController = rememberNavController()
     val navBackStack  by navController.currentBackStackEntryAsState()
     val currentRoute  = navBackStack?.destination?.route
-    val bottomRoutes  = listOf(Screen.Home.route, Screen.Search.route,
-                               Screen.Publish.route, Screen.Settings.route)
-    val showBottom    = currentRoute in bottomRoutes
+
+    val bottomRoutes = listOf(
+        Screen.Home.route, Screen.Search.route,
+        Screen.Publish.route, Screen.Settings.route
+    )
+    val showBottom = currentRoute in bottomRoutes
+
+    // Запрос разрешения уведомлений — сразу при старте, без перезагрузки
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val permLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { /* granted или нет — молча продолжаем */ }
+        LaunchedEffect(Unit) {
+            permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Scaffold(
         bottomBar = {
             if (showBottom) {
                 NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Home.route,
-                        onClick  = { navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true } } },
-                        icon  = { Icon(Icons.Filled.Home, null) },
-                        label = { Text(stringResource(R.string.home)) }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Search.route,
-                        onClick  = { navController.navigate(Screen.Search.route) {
-                            popUpTo(Screen.Home.route) } },
-                        icon  = { Icon(Icons.Filled.Search, null) },
-                        label = { Text(stringResource(R.string.search)) }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Publish.route,
-                        onClick  = { navController.navigate(Screen.Publish.route) {
-                            popUpTo(Screen.Home.route) } },
-                        icon  = { Icon(Icons.Filled.AddBox, null) },
-                        label = { Text(stringResource(R.string.upload)) }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Settings.route,
-                        onClick  = { navController.navigate(Screen.Settings.route) {
-                            popUpTo(Screen.Home.route) } },
-                        icon  = { Icon(Icons.Filled.Settings, null) },
-                        label = { Text(stringResource(R.string.settings)) }
-                    )
+                    listOf(
+                        Triple(Screen.Home.route,     Icons.Filled.Home,     R.string.home),
+                        Triple(Screen.Search.route,   Icons.Filled.Search,   R.string.search),
+                        Triple(Screen.Publish.route,  Icons.Filled.AddBox,   R.string.upload),
+                        Triple(Screen.Settings.route, Icons.Filled.Settings, R.string.settings),
+                    ).forEach { (route, icon, label) ->
+                        NavigationBarItem(
+                            selected = currentRoute == route,
+                            onClick  = {
+                                if (currentRoute != route) {
+                                    soundManager.playClick()  // carbonate при смене вкладки
+                                    navController.navigate(route) {
+                                        popUpTo(Screen.Home.route) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState    = true
+                                    }
+                                }
+                            },
+                            icon  = { Icon(icon, null) },
+                            label = { Text(stringResource(label)) }
+                        )
+                    }
                 }
             }
         }
     ) { padding ->
-        NavHost(navController = navController, startDestination = Screen.Home.route,
-            modifier = Modifier.padding(padding)) {
+        NavHost(
+            navController    = navController,
+            startDestination = Screen.Home.route,
+            modifier         = Modifier.padding(padding)
+        ) {
             composable(Screen.Home.route) {
-                HomeScreen(onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) })
+                HomeScreen(onAppClick = {
+                    soundManager.playClick()
+                    navController.navigate(Screen.AppDetail.createRoute(it))
+                })
             }
             composable(Screen.Search.route) {
-                SearchScreen(onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) })
+                SearchScreen(onAppClick = {
+                    soundManager.playClick()
+                    navController.navigate(Screen.AppDetail.createRoute(it))
+                })
             }
             composable(Screen.Publish.route) {
                 PublishScreen(
-                    onBack    = { navController.popBackStack() },
-                    onSuccess = { navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true } } }
+                    onBack    = { soundManager.playClick(); navController.popBackStack() },
+                    onSuccess = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                    }
                 )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onBack         = { navController.popBackStack() },
-                    onHistoryClick = { navController.navigate(Screen.History.route) },
-                    onDevTestClick = { navController.navigate(Screen.DevTest.route) }
+                    onBack         = { soundManager.playClick(); navController.popBackStack() },
+                    onHistoryClick = { soundManager.playClick(); navController.navigate(Screen.History.route) },
+                    onDevTestClick = { soundManager.playClick(); navController.navigate(Screen.DevTest.route) }
                 )
             }
             composable(Screen.History.route) {
                 HistoryScreen(
-                    onBack     = { navController.popBackStack() },
-                    onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) }
+                    onBack     = { soundManager.playClick(); navController.popBackStack() },
+                    onAppClick = { soundManager.playClick(); navController.navigate(Screen.AppDetail.createRoute(it)) }
                 )
             }
             composable(Screen.DevTest.route) {
-                DevTestScreen(onBack = { navController.popBackStack() })
+                DevTestScreen(onBack = { soundManager.playClick(); navController.popBackStack() })
             }
-            composable(Screen.AppDetail.route,
+            composable(
+                Screen.AppDetail.route,
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
             ) { back ->
                 val appId = back.arguments?.getInt("appId") ?: return@composable
-                AppDetailScreen(appId = appId, onBack = { navController.popBackStack() })
+                AppDetailScreen(appId = appId, onBack = { soundManager.playClick(); navController.popBackStack() })
             }
         }
     }
