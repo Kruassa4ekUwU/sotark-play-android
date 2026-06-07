@@ -13,10 +13,14 @@ val BlueDark       = Color(0xFF0D47A1)
 val UkrainianBlue   = Color(0xFF005BBB)
 val UkrainianYellow = Color(0xFFFFD500)
 
-// Liquid Glass colours
-val GlassSurface   = Color(0x40FFFFFF)  // белый 25% прозрачность
-val GlassBorder    = Color(0x60FFFFFF)  // белый 37%
-val GlassDark      = Color(0x40000000)  // чёрный 25%
+// Liquid Glass colours (v2.0.0)
+val GlassSurface = Color(0x40FFFFFF)
+val GlassBorder  = Color(0x60FFFFFF)
+val GlassDark    = Color(0x40000000)
+
+// Deprecated — используй MaterialTheme.colorScheme.primary
+@Deprecated("Use MaterialTheme.colorScheme.primary", ReplaceWith("MaterialTheme.colorScheme.primary"))
+val GreenPrimary = BluePrimary
 
 private val DarkColors = darkColorScheme(
     primary          = BluePrimary,
@@ -52,17 +56,16 @@ private val UkrainianColors = darkColorScheme(
     onBackground     = UkrainianYellow,
     onSurface        = UkrainianYellow,
     onSurfaceVariant = Color(0xFFFFEB80),
-    // Фикс проплешин — все элементы должны быть видны
     outline          = UkrainianYellow.copy(alpha = 0.5f),
     outlineVariant   = UkrainianYellow.copy(alpha = 0.3f),
     inverseSurface   = UkrainianYellow,
     inverseOnSurface = UkrainianBlue,
-    primaryContainer = Color(0xFF003580),
-    onPrimaryContainer = UkrainianYellow,
-    secondaryContainer = Color(0xFF004A9E),
+    primaryContainer    = Color(0xFF003580),
+    onPrimaryContainer  = UkrainianYellow,
+    secondaryContainer  = Color(0xFF004A9E),
     onSecondaryContainer = UkrainianYellow,
-    tertiaryContainer  = Color(0xFF003070),
-    onTertiaryContainer  = UkrainianYellow,
+    tertiaryContainer   = Color(0xFF003070),
+    onTertiaryContainer = UkrainianYellow,
 )
 
 @Composable
@@ -76,9 +79,5 @@ fun SotarkPlayTheme(
         darkTheme      -> DarkColors
         else           -> LightColors
     }
-    MaterialTheme(
-        colorScheme = colors,
-        typography  = Typography(),
-        content     = content
-    )
+    MaterialTheme(colorScheme = colors, typography = Typography(), content = content)
 }
