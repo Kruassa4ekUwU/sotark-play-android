@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val records by viewModel.records.collectAsState()
+    var isRefreshing by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -49,19 +51,28 @@ fun HistoryScreen(
             )
         }
     ) { padding ->
-        if (records.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("История пуста",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            LazyColumn(
-                Modifier.padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(records) { record ->
-                    HistoryItem(record = record, onClick = { onAppClick(record.appId) })
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh    = {
+                isRefreshing = true
+                viewModel.load()
+                isRefreshing = false
+            },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        ) {
+            if (records.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("История пуста", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(records) { record ->
+                        HistoryItem(record = record, onClick = { onAppClick(record.appId) })
+                    }
                 }
             }
         }
@@ -75,8 +86,7 @@ fun HistoryScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.clear(); showClearDialog = false },
-                    colors  = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error)
+                    colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("Очистить") }
             },
             dismissButton = {
@@ -89,21 +99,14 @@ fun HistoryScreen(
 @Composable
 private fun HistoryItem(record: DownloadRecord, onClick: () -> Unit) {
     val fmt = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
-    Card(
-        onClick  = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape    = MaterialTheme.shapes.medium
-    ) {
-        Row(
-            Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppIcon(url = record.iconUrl, size = 48)
             Column(Modifier.weight(1f)) {
                 Text(record.appName, fontWeight = FontWeight.SemiBold)
-                Text("v${record.version}",
-                    style = MaterialTheme.typography.bodySmall,
+                Text("v${record.version}", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(fmt.format(Date(record.timestamp)),
