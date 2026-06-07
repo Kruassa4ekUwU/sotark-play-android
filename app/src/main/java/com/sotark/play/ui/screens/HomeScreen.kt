@@ -6,9 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,83 +28,83 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Sotark Play") },
-                actions = {
-                    IconButton(onClick = viewModel::load) {
-                        Icon(Icons.Filled.Refresh, null)
-                    }
-                }
-            )
+            TopAppBar(title = { Text("Sotark Play") })
         }
     ) { padding ->
-        when {
-            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            state.error != null -> Column(
-                Modifier.fillMaxSize().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(stringResource(R.string.connection_error),
-                    style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                Text(state.error!!, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = viewModel::load) { Text(stringResource(R.string.retry)) }
-            }
-            else -> LazyColumn(
-                Modifier.padding(padding),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (state.topApps.isNotEmpty()) {
-                    item { SectionHeader(stringResource(R.string.top_apps)) }
-                    item {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(state.topApps.take(6)) { app ->
-                                FeaturedAppCard(app = app, onClick = { onAppClick(app.id) })
+        PullToRefreshBox(
+            isRefreshing = state.isLoading,
+            onRefresh    = viewModel::load,
+            modifier     = Modifier.padding(padding).fillMaxSize()
+        ) {
+            when {
+                state.isLoading && state.topApps.isEmpty() && state.newApps.isEmpty() ->
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                state.error != null -> Column(
+                    Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(stringResource(R.string.connection_error),
+                        style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(state.error!!, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = viewModel::load) { Text(stringResource(R.string.retry)) }
+                }
+                else -> LazyColumn(
+                    Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (state.topApps.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.top_apps)) }
+                        item {
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(state.topApps.take(6)) { app ->
+                                    FeaturedAppCard(app = app, onClick = { onAppClick(app.id) })
+                                }
                             }
                         }
                     }
-                }
-                if (state.categories.isNotEmpty()) {
-                    item { SectionHeader(stringResource(R.string.categories)) }
-                    item {
-                        Row(
-                            Modifier.horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            state.categories.take(8).forEach { cat ->
-                                AssistChip(onClick = {},
-                                    label = { Text("${cat.category}  ${cat.count}") })
+                    if (state.categories.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.categories)) }
+                        item {
+                            Row(
+                                Modifier.horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                state.categories.take(8).forEach { cat ->
+                                    AssistChip(onClick = {},
+                                        label = { Text("${cat.category}  ${cat.count}") })
+                                }
                             }
                         }
                     }
-                }
-                if (state.newApps.isNotEmpty()) {
-                    item { SectionHeader(stringResource(R.string.new_apps)) }
-                    items(state.newApps) { app ->
-                        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                            AppCard(app = app, onClick = { onAppClick(app.id) })
+                    if (state.newApps.isNotEmpty()) {
+                        item { SectionHeader(stringResource(R.string.new_apps)) }
+                        items(state.newApps) { app ->
+                            Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                AppCard(app = app, onClick = { onAppClick(app.id) })
+                            }
                         }
                     }
-                }
-                if (state.topApps.isEmpty() && state.newApps.isEmpty()) {
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(48.dp),
-                            contentAlignment = Alignment.Center) {
-                            Text("No apps yet",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.topApps.isEmpty() && state.newApps.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(48.dp),
+                                contentAlignment = Alignment.Center) {
+                                Text("No apps yet",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
+                    item { Spacer(Modifier.height(16.dp)) }
                 }
-                item { Spacer(Modifier.height(16.dp)) }
             }
         }
     }
