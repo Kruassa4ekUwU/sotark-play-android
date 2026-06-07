@@ -44,6 +44,7 @@ import com.sotark.play.viewmodel.SettingsViewModel
 fun SettingsScreen(
     onBack: () -> Unit,
     onHistoryClick: () -> Unit,
+    onDevTestClick: () -> Unit = {},
     viewModel: SettingsViewModel   = hiltViewModel(),
     downloadViewModel: DownloadViewModel = hiltViewModel()
 ) {
@@ -57,20 +58,16 @@ fun SettingsScreen(
     val hapticEnabled    by viewModel.hapticEnabled.collectAsState()
     val ctx              = LocalContext.current
 
-    var showEasterEgg    by remember { mutableStateOf(false) }
-
-    // Пасхалка — только 1 раз
+    var showEasterEgg by remember { mutableStateOf(false) }
     LaunchedEffect(easterUnlocked) {
         if (easterUnlocked && !easterShown) showEasterEgg = true
     }
 
-    // Разрешение без перезапуска
     var canInstall by remember { mutableStateOf(downloadViewModel.canInstallUnknownSources()) }
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { canInstall = downloadViewModel.canInstallUnknownSources() }
 
-    // Цвета для украинской темы — всё контрастно
     val cardColor    = if (ukrainianTheme) Color(0xFF003D85) else MaterialTheme.colorScheme.surfaceVariant
     val textColor    = if (ukrainianTheme) UkrainianYellow   else MaterialTheme.colorScheme.onSurface
     val subTextColor = if (ukrainianTheme) Color(0xFFFFEB80)  else MaterialTheme.colorScheme.onSurfaceVariant
@@ -113,7 +110,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
 
-            // Версия
+            // ── Версия ────────────────────────────────────────────────────
             SettingsCard(bgColor = cardColor) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -126,7 +123,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Разрешение — только если нет
+            // ── Нет разрешения ────────────────────────────────────────────
             if (!canInstall) {
                 SettingsCard(bgColor = MaterialTheme.colorScheme.errorContainer) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -153,7 +150,7 @@ fun SettingsScreen(
                 }
             }
 
-            // История
+            // ── История ───────────────────────────────────────────────────
             SettingsCard(bgColor = cardColor, onClick = onHistoryClick) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -166,10 +163,38 @@ fun SettingsScreen(
                 }
             }
 
+            // ── Dev Test — только в бете ──────────────────────────────────
+            if (BuildConfig.IS_BETA) {
+                SettingsCard(
+                    bgColor = Color(0xFF1A1A2E),
+                    onClick = onDevTestClick
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Filled.BugReport, null, tint = Color(0xFFFFA000))
+                            Column {
+                                Text("Dev Test Panel", color = Color.White,
+                                    fontWeight = FontWeight.Medium)
+                                Text("Сервер · Вибро · Аудио · Уведомления · Файлы",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFB0B0CC))
+                            }
+                        }
+                        Surface(shape = MaterialTheme.shapes.small, color = Color(0xFFFFA000)) {
+                            Text("BETA", style = MaterialTheme.typography.labelSmall,
+                                color = Color.White, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(4.dp))
             SectionLabel("Внешний вид", subTextColor)
 
-            // Тёмная тема — 5 тапов = секретное меню (подсказка скрыта)
+            // ── Тёмная тема ───────────────────────────────────────────────
             SettingsCard(bgColor = cardColor) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -184,7 +209,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Украинская тема
+            // ── Украинская тема ───────────────────────────────────────────
             AnimatedVisibility(visible = easterUnlocked) {
                 SettingsCard(bgColor = if (ukrainianTheme) Color(0xFF002D70) else cardColor) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -206,7 +231,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Секретное меню тем
+            // ── Секретное меню ────────────────────────────────────────────
             AnimatedVisibility(visible = secretMenu) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionLabel("Секретное меню тем", subTextColor)
@@ -233,7 +258,8 @@ fun SettingsScreen(
                         Icon(Icons.Filled.VolumeUp, null, tint = MaterialTheme.colorScheme.primary)
                         Text("Звуки", color = textColor)
                     }
-                    Switch(checked = soundEnabled, onCheckedChange = { viewModel.toggleSound() }, colors = switchColors)
+                    Switch(checked = soundEnabled, onCheckedChange = { viewModel.toggleSound() },
+                        colors = switchColors)
                 }
             }
 
@@ -245,14 +271,14 @@ fun SettingsScreen(
                         Icon(Icons.Filled.Vibration, null, tint = MaterialTheme.colorScheme.primary)
                         Text("Виброотклик", color = textColor)
                     }
-                    Switch(checked = hapticEnabled, onCheckedChange = { viewModel.toggleHaptic() }, colors = switchColors)
+                    Switch(checked = hapticEnabled, onCheckedChange = { viewModel.toggleHaptic() },
+                        colors = switchColors)
                 }
             }
 
             Spacer(Modifier.height(4.dp))
             SectionLabel(stringResource(R.string.language), subTextColor)
 
-            // Язык — подсказки для секреток скрыты
             Card(shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = cardColor)) {
                 Column(Modifier.selectableGroup()) {
@@ -286,7 +312,7 @@ fun SettingsScreen(
         }
     }
 
-    // Пасхалка — 1 раз
+    // ── Пасхалка ─────────────────────────────────────────────────────────────
     if (showEasterEgg) {
         Dialog(onDismissRequest = { showEasterEgg = false; viewModel.markEasterEggShown() }) {
             Card(shape = MaterialTheme.shapes.large,
@@ -299,7 +325,7 @@ fun SettingsScreen(
                     AsyncImage(model = R.drawable.easter_egg_founder,
                         contentDescription = null, contentScale = ContentScale.Crop,
                         modifier = Modifier.size(120.dp).clip(CircleShape))
-                    Text(text = "Основатель Sotark / Вест-Индийское IT",
+                    Text("Основатель Sotark / Вест-Индийское IT",
                         color = UkrainianYellow, textAlign = TextAlign.Center,
                         fontWeight = FontWeight.Medium)
                     Text("Украинская тема разблокирована!",
