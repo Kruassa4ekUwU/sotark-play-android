@@ -115,7 +115,8 @@ fun SotarkPlayApp() {
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onBack         = { navController.popBackStack() },
-                    onHistoryClick = { navController.navigate(Screen.History.route) }
+                    onHistoryClick = { navController.navigate(Screen.History.route) },
+                    onDevTestClick = { navController.navigate(Screen.DevTest.route) }
                 )
             }
             composable(Screen.History.route) {
@@ -123,6 +124,9 @@ fun SotarkPlayApp() {
                     onBack     = { navController.popBackStack() },
                     onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) }
                 )
+            }
+            composable(Screen.DevTest.route) {
+                DevTestScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.AppDetail.route,
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
