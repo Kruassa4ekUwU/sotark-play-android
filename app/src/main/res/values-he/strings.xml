@@ -38,6 +38,7 @@
     <string name="permission_needed">נדרשת הרשאה</string>
     <string name="open_settings">פתח הגדרות</string>
     <string name="category">קטגוריה</string>
+    <string name="age_rating">דירוג גיל</string>
     <string name="search_hint">חפש אפליקציות...</string>
     <string name="your_name">שמך</string>
     <string name="comment">הערה</string>
@@ -56,4 +57,9 @@
     <string name="app_name_hint">שם האפליקציה *</string>
     <string name="package_hint">Package name * (com.example.app)</string>
     <string name="permission_text">כדי להתקין אפליקציות, אפשר ל-Sotark Play להתקין בהגדרות.</string>
+    <string name="upload_error">שגיאת העלאה לשרת</string>
+    <string name="what_to_tell">מה תרצה לספר?</string>
+    <string name="review_name_hint">שמך</string>
+    <string name="write_review_title">כתוב ביקורת</string>
+    <string name="swipe_refresh">משוך לרענון</string>
 </resources>
