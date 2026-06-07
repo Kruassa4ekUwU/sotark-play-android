@@ -25,6 +25,7 @@ data class PublishUiState(
     val developer: String   = "",
     val version: String     = "1.0.0",
     val category: String    = "Other",
+    val ageRating: String   = "ALL",
     val apkUri: Uri?        = null,
     val apkName: String     = "",
     val iconUri: Uri?       = null,
@@ -38,6 +39,14 @@ val CATEGORIES = listOf(
     "Games", "Tools", "Social", "Entertainment", "Education",
     "Finance", "Health", "Music", "News", "Shopping",
     "Travel", "Productivity", "Other"
+)
+
+val AGE_RATINGS = listOf(
+    "ALL"      to "0+",
+    "SIX"      to "6+",
+    "TWELVE"   to "12+",
+    "SIXTEEN"  to "16+",
+    "EIGHTEEN" to "18+"
 )
 
 @HiltViewModel
@@ -54,6 +63,7 @@ class PublishViewModel @Inject constructor(
     fun onDeveloper(v: String)   = _state.update { it.copy(developer = v) }
     fun onVersion(v: String)     = _state.update { it.copy(version = v) }
     fun onCategory(v: String)    = _state.update { it.copy(category = v) }
+    fun onAgeRating(v: String)   = _state.update { it.copy(ageRating = v) }
 
     fun onApkPicked(uri: Uri) {
         val name = uri.lastPathSegment?.substringAfterLast('/') ?: "app.apk"
@@ -68,27 +78,25 @@ class PublishViewModel @Inject constructor(
     fun publish() {
         val s = _state.value
         if (s.name.isBlank() || s.packageName.isBlank() || s.developer.isBlank()) {
-            _state.update { it.copy(error = "Заполни название, пакет и разработчика") }
+            _state.update { it.copy(error = "fill_required") }
             return
         }
         if (s.apkUri == null) {
-            _state.update { it.copy(error = "Выбери APK файл") }
+            _state.update { it.copy(error = "pick_apk_required") }
             return
         }
 
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                val result = withContext(Dispatchers.IO) {
-                    uploadApp(s)
-                }
+                val result = withContext(Dispatchers.IO) { uploadApp(s) }
                 if (result) {
                     _state.update { it.copy(isLoading = false, success = true) }
                 } else {
-                    _state.update { it.copy(isLoading = false, error = "Ошибка загрузки на сервер") }
+                    _state.update { it.copy(isLoading = false, error = "upload_error") }
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(isLoading = false, error = e.message ?: "Ошибка") }
+                _state.update { it.copy(isLoading = false, error = e.message ?: "error") }
             }
         }
     }
@@ -102,10 +110,11 @@ class PublishViewModel @Inject constructor(
     }
 
     private fun uploadApp(s: PublishUiState): Boolean {
+        // Увеличенные таймауты для больших APK (фикс бага беты)
         val client = OkHttpClient.Builder()
             .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(300, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
             .build()
 
         val apkFile  = uriToTempFile(s.apkUri!!, ".apk")
@@ -118,6 +127,7 @@ class PublishViewModel @Inject constructor(
             .addFormDataPart("developer",   s.developer)
             .addFormDataPart("version",     s.version)
             .addFormDataPart("category",    s.category)
+            .addFormDataPart("age_rating",  s.ageRating)
             .addFormDataPart("apk", apkFile.name,
                 apkFile.asRequestBody("application/vnd.android.package-archive".toMediaTypeOrNull()))
 
@@ -126,10 +136,9 @@ class PublishViewModel @Inject constructor(
                 iconFile.asRequestBody("image/*".toMediaTypeOrNull()))
         }
 
-        val request = Request.Builder()
-            .url(BuildConfig.BASE_URL + "apps")
-            .post(bodyBuilder.build())
-            .build()
+        // Гарантируем правильный URL — BASE_URL уже заканчивается на /
+        val url = BuildConfig.BASE_URL.trimEnd('/') + "/apps"
+        val request = Request.Builder().url(url).post(bodyBuilder.build()).build()
 
         val response = client.newCall(request).execute()
         apkFile.delete()
