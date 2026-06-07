@@ -33,6 +33,7 @@
     <string name="version_hint">Version</string>
     <string name="description_hint">Description</string>
     <string name="category">Category</string>
+    <string name="age_rating">Age rating</string>
     <string name="icon_label">Icon</string>
     <string name="pick_icon">Pick image</string>
     <string name="apk_file">APK file</string>
@@ -41,6 +42,7 @@
     <string name="uploading">Uploading...</string>
     <string name="fill_required">Fill name, package and developer</string>
     <string name="pick_apk_required">Pick an APK file</string>
+    <string name="upload_error">Upload error</string>
     <string name="dark_theme">Dark theme</string>
     <string name="language">Language</string>
     <string name="permission_needed">Permission needed</string>
@@ -55,4 +57,8 @@
     <string name="send">Send</string>
     <string name="notif_channel">Downloads</string>
     <string name="notif_downloading">Downloading</string>
+    <string name="what_to_tell">What would you like to say?</string>
+    <string name="review_name_hint">Your name</string>
+    <string name="write_review_title">Write a review</string>
+    <string name="swipe_refresh">Pull to refresh</string>
 </resources>
