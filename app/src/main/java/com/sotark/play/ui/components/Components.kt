@@ -20,15 +20,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.sotark.play.data.model.App
-import com.sotark.play.ui.theme.GreenPrimary
 
-// ─── App Card (grid / list) ──────────────────────────────────────────────────
+// ─── App Card ────────────────────────────────────────────────────────────────
 @Composable
 fun AppCard(app: App, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape  = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
@@ -39,23 +36,23 @@ fun AppCard(app: App, onClick: () -> Unit) {
             AppIcon(url = app.iconUrl, size = 56)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(app.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(app.name, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(app.developer, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.Star, null, tint = Color(0xFFFFC107),
+                        modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(2.dp))
                     Text("${app.rating}", style = MaterialTheme.typography.labelSmall)
                     Spacer(Modifier.width(8.dp))
-                    Text(app.category,
-                        style = MaterialTheme.typography.labelSmall,
+                    Text(app.category, style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.width(8.dp))
-            Text("${app.sizeMb} MB",
-                style = MaterialTheme.typography.labelSmall,
+            Text("${app.sizeMb} MB", style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -67,23 +64,18 @@ fun AppIcon(url: String?, size: Int = 48) {
     val shape = RoundedCornerShape((size * 0.22f).dp)
     if (url != null) {
         AsyncImage(
-            model  = url,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(size.dp)
-                .clip(shape)
+            model = url, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.size(size.dp).clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         )
     } else {
         Box(
-            modifier = Modifier
-                .size(size.dp)
-                .clip(shape)
-                .background(GreenPrimary.copy(alpha = .2f)),
+            modifier = Modifier.size(size.dp).clip(shape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = .2f)),
             contentAlignment = Alignment.Center
         ) {
-            Text("?", fontSize = (size * 0.4f).sp, color = GreenPrimary)
+            Text("?", fontSize = (size * 0.4f).sp,
+                color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -109,11 +101,7 @@ fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick  = onClick,
-        label    = { Text(label, style = MaterialTheme.typography.labelMedium) },
-        colors   = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = GreenPrimary,
-            selectedLabelColor     = Color.White
-        )
+        label    = { Text(label, style = MaterialTheme.typography.labelMedium) }
     )
 }
 
@@ -135,10 +123,8 @@ fun InstallButton(
     onClick: () -> Unit
 ) {
     Button(
-        onClick  = onClick,
-        enabled  = enabled,
-        shape    = RoundedCornerShape(8.dp),
-        colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+        onClick = onClick, enabled = enabled,
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier.height(40.dp)
     ) { Text(label, fontWeight = FontWeight.SemiBold) }
 }
