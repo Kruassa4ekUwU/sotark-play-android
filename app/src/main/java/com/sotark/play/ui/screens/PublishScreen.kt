@@ -18,11 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.sotark.play.ui.theme.GreenPrimary
+import com.sotark.play.R
+import com.sotark.play.viewmodel.AGE_RATINGS
 import com.sotark.play.viewmodel.CATEGORIES
 import com.sotark.play.viewmodel.PublishViewModel
 
@@ -35,28 +37,22 @@ fun PublishScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    // APK picker — любой файл
     val apkLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? -> uri?.let { viewModel.onApkPicked(it) } }
 
-    // Icon picker — только картинки
     val iconLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? -> uri?.let { viewModel.onIconPicked(it) } }
 
-    // Success → уходим на главную
     LaunchedEffect(state.success) {
-        if (state.success) {
-            viewModel.resetSuccess()
-            onSuccess()
-        }
+        if (state.success) { viewModel.resetSuccess(); onSuccess() }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Опубликовать приложение") },
+                title = { Text(stringResource(R.string.publish_app)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
@@ -75,7 +71,8 @@ fun PublishScreen(
             ) {
 
                 // ── Иконка приложения ────────────────────────────────────
-                Text("Иконка", style = MaterialTheme.typography.labelLarge,
+                Text(stringResource(R.string.icon_label),
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(
                     Modifier
@@ -87,8 +84,7 @@ fun PublishScreen(
                 ) {
                     if (state.iconUri != null) {
                         AsyncImage(
-                            model = state.iconUri,
-                            contentDescription = null,
+                            model = state.iconUri, contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -97,7 +93,8 @@ fun PublishScreen(
                             Icon(Icons.Filled.AddPhotoAlternate, null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(32.dp))
-                            Text("Выбрать", style = MaterialTheme.typography.labelSmall,
+                            Text(stringResource(R.string.pick_icon),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -107,61 +104,70 @@ fun PublishScreen(
 
                 // ── Основные поля ────────────────────────────────────────
                 SotarkTextField(
-                    value    = state.name,
-                    onValueChange = viewModel::onName,
-                    label    = "Название приложения *",
-                    icon     = Icons.Filled.Apps
+                    value = state.name, onValueChange = viewModel::onName,
+                    label = stringResource(R.string.app_name_hint), icon = Icons.Filled.Apps
                 )
                 SotarkTextField(
-                    value    = state.packageName,
-                    onValueChange = viewModel::onPackage,
-                    label    = "Package name * (com.example.app)",
-                    icon     = Icons.Filled.Code
+                    value = state.packageName, onValueChange = viewModel::onPackage,
+                    label = stringResource(R.string.package_hint), icon = Icons.Filled.Code
                 )
                 SotarkTextField(
-                    value    = state.developer,
-                    onValueChange = viewModel::onDeveloper,
-                    label    = "Разработчик *",
-                    icon     = Icons.Filled.Person
+                    value = state.developer, onValueChange = viewModel::onDeveloper,
+                    label = stringResource(R.string.developer_hint), icon = Icons.Filled.Person
                 )
                 SotarkTextField(
-                    value    = state.version,
-                    onValueChange = viewModel::onVersion,
-                    label    = "Версия",
-                    icon     = Icons.Filled.NewReleases
+                    value = state.version, onValueChange = viewModel::onVersion,
+                    label = stringResource(R.string.version_hint), icon = Icons.Filled.NewReleases
                 )
                 SotarkTextField(
-                    value    = state.description,
-                    onValueChange = viewModel::onDescription,
-                    label    = "Описание",
-                    icon     = Icons.Filled.Description,
-                    minLines = 3,
-                    maxLines = 6
+                    value = state.description, onValueChange = viewModel::onDescription,
+                    label = stringResource(R.string.description_hint), icon = Icons.Filled.Description,
+                    minLines = 3, maxLines = 6
                 )
 
                 // ── Категория ────────────────────────────────────────────
-                var expanded by remember { mutableStateOf(false) }
+                var catExpanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it }
+                    expanded = catExpanded,
+                    onExpandedChange = { catExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value         = state.category,
-                        onValueChange = {},
-                        readOnly      = true,
-                        label         = { Text("Категория") },
-                        leadingIcon   = { Icon(Icons.Filled.Category, null) },
-                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                        modifier      = Modifier.fillMaxWidth().menuAnchor()
+                        value = state.category, onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.category)) },
+                        leadingIcon = { Icon(Icons.Filled.Category, null) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(catExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
+                    ExposedDropdownMenu(expanded = catExpanded, onDismissRequest = { catExpanded = false }) {
                         CATEGORIES.forEach { cat ->
                             DropdownMenuItem(
-                                text    = { Text(cat) },
-                                onClick = { viewModel.onCategory(cat); expanded = false }
+                                text = { Text(cat) },
+                                onClick = { viewModel.onCategory(cat); catExpanded = false }
+                            )
+                        }
+                    }
+                }
+
+                // ── Возрастной рейтинг ───────────────────────────────────
+                var ageExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = ageExpanded,
+                    onExpandedChange = { ageExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = state.ageRating, onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.age_rating)) },
+                        leadingIcon = { Icon(Icons.Filled.Shield, null) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(ageExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(expanded = ageExpanded, onDismissRequest = { ageExpanded = false }) {
+                        AGE_RATINGS.forEach { (key, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = { viewModel.onAgeRating(key); ageExpanded = false }
                             )
                         }
                     }
@@ -170,13 +176,12 @@ fun PublishScreen(
                 HorizontalDivider()
 
                 // ── APK файл ─────────────────────────────────────────────
-                Text("APK файл", style = MaterialTheme.typography.labelLarge,
+                Text(stringResource(R.string.apk_file),
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 OutlinedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { apkLauncher.launch("*/*") },
+                    modifier = Modifier.fillMaxWidth().clickable { apkLauncher.launch("*/*") },
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
@@ -185,22 +190,20 @@ fun PublishScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            if (state.apkUri != null) Icons.Filled.CheckCircle
-                            else Icons.Filled.FileUpload,
+                            if (state.apkUri != null) Icons.Filled.CheckCircle else Icons.Filled.FileUpload,
                             null,
-                            tint   = if (state.apkUri != null) GreenPrimary
-                                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (state.apkUri != null) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(28.dp)
                         )
                         Column(Modifier.weight(1f)) {
                             Text(
                                 if (state.apkUri != null) state.apkName
-                                else "Нажми чтобы выбрать .apk",
-                                fontWeight = if (state.apkUri != null) FontWeight.Medium
-                                             else FontWeight.Normal
+                                else stringResource(R.string.pick_apk),
+                                fontWeight = if (state.apkUri != null) FontWeight.Medium else FontWeight.Normal
                             )
                             if (state.apkUri == null) {
-                                Text("Из файлового менеджера",
+                                Text("*.apk",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -217,65 +220,50 @@ fun PublishScreen(
 
                 // ── Кнопка публикации ────────────────────────────────────
                 Button(
-                    onClick  = viewModel::publish,
-                    enabled  = !state.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape    = RoundedCornerShape(12.dp),
-                    colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+                    onClick = viewModel::publish,
+                    enabled = !state.isLoading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     if (state.isLoading) {
                         CircularProgressIndicator(
-                            color    = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp), strokeWidth = 2.dp
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Загружается…", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.uploading), fontWeight = FontWeight.Bold)
                     } else {
                         Icon(Icons.Filled.CloudUpload, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Опубликовать", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.publish), fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Spacer(Modifier.height(16.dp))
             }
 
-            // ── Error snackbar ───────────────────────────────────────────
             if (state.error != null) {
                 Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp),
-                    action = {
-                        TextButton(onClick = viewModel::clearError) { Text("OK") }
-                    }
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                    action = { TextButton(onClick = viewModel::clearError) { Text("OK") } }
                 ) { Text(state.error!!) }
             }
         }
     }
 }
 
-// ── Переиспользуемый TextField ───────────────────────────────────────────────
 @Composable
 private fun SotarkTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    minLines: Int = 1,
-    maxLines: Int = 1
+    value: String, onValueChange: (String) -> Unit,
+    label: String, icon: androidx.compose.ui.graphics.vector.ImageVector,
+    minLines: Int = 1, maxLines: Int = 1
 ) {
     OutlinedTextField(
-        value         = value,
-        onValueChange = onValueChange,
-        label         = { Text(label) },
-        leadingIcon   = { Icon(icon, null) },
-        minLines      = minLines,
-        maxLines      = maxLines,
-        shape         = RoundedCornerShape(12.dp),
-        modifier      = Modifier.fillMaxWidth()
+        value = value, onValueChange = onValueChange,
+        label = { Text(label) },
+        leadingIcon = { Icon(icon, null) },
+        minLines = minLines, maxLines = maxLines,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
     )
 }
