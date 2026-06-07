@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +24,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,16 +42,17 @@ import com.sotark.play.viewmodel.HistoryViewModel
 fun AppDetailScreen(
     appId: Int,
     onBack: () -> Unit,
-    detailVm:   AppDetailViewModel  = hiltViewModel(),
-    downloadVm: DownloadViewModel   = hiltViewModel(),
-    historyVm:  HistoryViewModel    = hiltViewModel()
+    detailVm:   AppDetailViewModel = hiltViewModel(),
+    downloadVm: DownloadViewModel  = hiltViewModel(),
+    historyVm:  HistoryViewModel   = hiltViewModel()
 ) {
     val state   by detailVm.state.collectAsState()
     val dlState by downloadVm.state.collectAsState()
 
-    // Загружаем только один раз
+    // Ровно один LaunchedEffect — загружаем при первом входе
     LaunchedEffect(appId) { detailVm.load(appId) }
 
+    // Установка APK когда файл готов
     LaunchedEffect(dlState) {
         if (dlState is DownloadState.ReadyToInstall) {
             historyVm.load()
@@ -61,17 +60,22 @@ fun AppDetailScreen(
         }
     }
 
-    val pkg       = state.app?.`package` ?: ""
-    val installed = if (pkg.isNotEmpty()) downloadVm.isInstalled(pkg) else false
+    val pkg        = state.app?.`package` ?: ""
+    val installed  = if (pkg.isNotEmpty()) downloadVm.isInstalled(pkg) else false
     val canInstall = downloadVm.canInstallUnknownSources()
 
     var fullscreenImg        by remember { mutableStateOf<String?>(null) }
     var showReviewDialog     by remember { mutableStateOf(false) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     var showAgeWarning       by remember { mutableStateOf(false) }
+    var ageWarningShown      by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.app) {
-        if (state.app?.getAgeRatingEnum() == AgeRating.EIGHTEEN) showAgeWarning = true
+        val app = state.app ?: return@LaunchedEffect
+        if (!ageWarningShown && app.getAgeRatingEnum() == AgeRating.EIGHTEEN) {
+            showAgeWarning = true
+            ageWarningShown = true
+        }
     }
 
     Scaffold(
@@ -82,36 +86,49 @@ fun AppDetailScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                     }
+                },
+                actions = {
+                    // Кнопка ручного обновления вместо swipe (нет двойного)
+                    if (!state.isLoading && state.app != null) {
+                        IconButton(onClick = { detailVm.load(appId) }) {
+                            Icon(Icons.Filled.CheckCircle, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp))
+                        }
+                    }
                 }
             )
         }
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.isLoading,
-            onRefresh    = { detailVm.load(appId) },
-            modifier     = Modifier.padding(padding).fillMaxSize()
-        ) {
+        Box(Modifier.padding(padding).fillMaxSize()) {
             when {
-                state.isLoading && state.app == null ->
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                state.error != null ->
-                    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.error_loading))
-                            Spacer(Modifier.height(8.dp))
-                            Button(onClick = { detailVm.load(appId) }) {
-                                Text(stringResource(R.string.retry))
-                            }
+                // Загрузка первого открытия
+                state.isLoading && state.app == null -> {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                }
+                // Ошибка
+                state.error != null && state.app == null -> {
+                    Column(
+                        Modifier.align(Alignment.Center).padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(stringResource(R.string.error_loading),
+                            style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { detailVm.load(appId) }) {
+                            Text(stringResource(R.string.retry))
                         }
                     }
+                }
+                // Контент
                 state.app != null -> {
                     val app = state.app!!
-                    LazyColumn(Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 32.dp)) {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
 
-                        // ── Header ────────────────────────────────────────
+                        // ── Шапка ─────────────────────────────────────────
                         item {
                             Row(Modifier.padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
@@ -156,14 +173,14 @@ fun AppDetailScreen(
                                 VerticalDivider(Modifier.height(40.dp))
                                 StatItem("${app.downloads}", stringResource(R.string.downloads))
                                 VerticalDivider(Modifier.height(40.dp))
-                                StatItem("${app.sizeMb} МБ", stringResource(R.string.size))
+                                StatItem("${app.sizeMb} MB", stringResource(R.string.size))
                                 VerticalDivider(Modifier.height(40.dp))
                                 StatItem("v${app.version}", stringResource(R.string.version))
                             }
                             HorizontalDivider(Modifier.padding(vertical = 12.dp))
                         }
 
-                        // ── Кнопка скачать/установить ─────────────────────
+                        // ── Кнопка скачать ────────────────────────────────
                         item {
                             Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                                 when (val dl = dlState) {
@@ -201,10 +218,10 @@ fun AppDetailScreen(
                                             modifier = Modifier.fillMaxWidth().height(8.dp)
                                                 .clip(RoundedCornerShape(4.dp))
                                         )
-                                        TextButton(onClick = { downloadVm.reset() },
-                                            modifier = Modifier.align(Alignment.End)) {
-                                            Text(stringResource(R.string.cancel))
-                                        }
+                                        TextButton(
+                                            onClick  = { downloadVm.reset() },
+                                            modifier = Modifier.align(Alignment.End)
+                                        ) { Text(stringResource(R.string.cancel)) }
                                     }
                                     is DownloadState.ReadyToInstall -> Button(
                                         onClick  = { downloadVm.installApk(dl.file) },
@@ -228,7 +245,7 @@ fun AppDetailScreen(
                             }
                         }
 
-                        // ── Галерея скриншотов ────────────────────────────
+                        // ── Галерея скриншотов ─────────────────────────────
                         if (app.screenshots.isNotEmpty()) {
                             item {
                                 Spacer(Modifier.height(8.dp))
@@ -241,21 +258,16 @@ fun AppDetailScreen(
                                 ) {
                                     app.screenshots.forEachIndexed { idx, url ->
                                         Box(
-                                            modifier = Modifier
-                                                .height(200.dp)
-                                                .width(110.dp)
+                                            Modifier
+                                                .height(200.dp).width(110.dp)
                                                 .clip(RoundedCornerShape(12.dp))
                                                 .clickable { fullscreenImg = url }
                                         ) {
                                             AsyncImage(
-                                                model = url, contentDescription = "Скриншот ${idx+1}",
+                                                model = url,
+                                                contentDescription = "${stringResource(R.string.screenshots)} ${idx+1}",
                                                 contentScale = ContentScale.Crop,
                                                 modifier = Modifier.fillMaxSize()
-                                            )
-                                            // Оверлей что кликабельно
-                                            Box(
-                                                Modifier.fillMaxSize()
-                                                    .background(Color.Black.copy(alpha = 0.05f))
                                             )
                                         }
                                     }
@@ -269,8 +281,8 @@ fun AppDetailScreen(
                             item {
                                 SectionHeader(stringResource(R.string.description))
                                 Text(app.description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(horizontal = 16.dp))
+                                    style    = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                             }
                         }
 
@@ -291,7 +303,7 @@ fun AppDetailScreen(
                         }
                         if (state.reviews.isEmpty()) {
                             item {
-                                Box(Modifier.fillMaxWidth().padding(16.dp),
+                                Box(Modifier.fillMaxWidth().padding(24.dp),
                                     contentAlignment = Alignment.Center) {
                                     Text(stringResource(R.string.no_reviews),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -306,6 +318,11 @@ fun AppDetailScreen(
                     }
                 }
             }
+
+            // Индикатор фонового обновления (не блокирует UI)
+            if (state.isLoading && state.app != null) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+            }
         }
     }
 
@@ -313,19 +330,13 @@ fun AppDetailScreen(
     fullscreenImg?.let { imgUrl ->
         Dialog(onDismissRequest = { fullscreenImg = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Box(
-                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.95f)),
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = imgUrl, contentDescription = null,
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.96f)),
+                contentAlignment = Alignment.Center) {
+                AsyncImage(model = imgUrl, contentDescription = null,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                )
-                IconButton(
-                    onClick = { fullscreenImg = null },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-                ) {
+                    modifier = Modifier.fillMaxWidth().padding(16.dp))
+                IconButton(onClick = { fullscreenImg = null },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                     Icon(Icons.Filled.Close, null, tint = Color.White,
                         modifier = Modifier.size(32.dp))
                 }
@@ -333,17 +344,17 @@ fun AppDetailScreen(
         }
     }
 
-    // ── Предупреждение 18+ ────────────────────────────────────────────────────
+    // ── 18+ предупреждение ────────────────────────────────────────────────────
     if (showAgeWarning) {
         AlertDialog(
             onDismissRequest = { showAgeWarning = false; onBack() },
-            title = { Text("18+ контент") },
+            title = { Text("18+") },
             text  = { Text("Это приложение содержит контент только для взрослых. Вам есть 18 лет?") },
             confirmButton = {
                 Button(onClick = { showAgeWarning = false }) { Text("Да, мне 18+") }
             },
             dismissButton = {
-                TextButton(onClick = { showAgeWarning = false; onBack() }) { Text("Нет, назад") }
+                TextButton(onClick = { showAgeWarning = false; onBack() }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -378,9 +389,11 @@ fun AppDetailScreen(
             title = { Text(stringResource(R.string.write_review_title)) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = author, onValueChange = { author = it },
+                    OutlinedTextField(
+                        value = author, onValueChange = { author = it },
                         label = { Text(stringResource(R.string.review_name_hint)) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                        singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         repeat(5) { i ->
                             IconButton(onClick = { rating = i + 1 },
@@ -392,20 +405,23 @@ fun AppDetailScreen(
                             }
                         }
                     }
-                    OutlinedTextField(value = text, onValueChange = { text = it },
+                    OutlinedTextField(
+                        value = text, onValueChange = { text = it },
                         label = { Text(stringResource(R.string.what_to_tell)) },
-                        minLines = 3, modifier = Modifier.fillMaxWidth())
+                        minLines = 3, modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (author.isNotBlank()) {
-                        detailVm.postReview(appId, author, rating, text)
-                        showReviewDialog = false
-                    }
-                }, enabled = author.isNotBlank()) {
-                    Text(stringResource(R.string.send))
-                }
+                Button(
+                    onClick  = {
+                        if (author.isNotBlank()) {
+                            detailVm.postReview(appId, author, rating, text)
+                            showReviewDialog = false
+                        }
+                    },
+                    enabled = author.isNotBlank()
+                ) { Text(stringResource(R.string.send)) }
             },
             dismissButton = {
                 TextButton(onClick = { showReviewDialog = false }) {
@@ -448,7 +464,7 @@ private fun ReviewItem(review: Review) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
+            verticalAlignment     = Alignment.CenterVertically) {
             Text(review.author, fontWeight = FontWeight.SemiBold)
             RatingStars(rating = review.rating.toFloat())
         }
