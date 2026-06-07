@@ -30,10 +30,11 @@ class HomeViewModel @Inject constructor(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        sound.playLaunch()
+        sound.playLaunch()   // scamper — один раз при создании ViewModel (= запуск приложения)
         load()
     }
 
+    /** Публичный — вызывается swipe-to-refresh, БЕЗ звука */
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
@@ -43,11 +44,11 @@ class HomeViewModel @Inject constructor(
             _state.update { s ->
                 s.copy(
                     isLoading  = false,
-                    topApps    = if (top is Result.Success) top.data else emptyList(),
-                    newApps    = if (newest is Result.Success) newest.data else emptyList(),
-                    categories = if (cats is Result.Success) cats.data else emptyList(),
+                    topApps    = if (top    is Result.Success) top.data    else s.topApps,
+                    newApps    = if (newest is Result.Success) newest.data else s.newApps,
+                    categories = if (cats   is Result.Success) cats.data   else s.categories,
                     error      = listOfNotNull(
-                        (top as? Result.Error)?.message,
+                        (top    as? Result.Error)?.message,
                         (newest as? Result.Error)?.message
                     ).firstOrNull()
                 )
