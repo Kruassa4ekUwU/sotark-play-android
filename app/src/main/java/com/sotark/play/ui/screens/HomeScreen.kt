@@ -27,9 +27,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Sotark Play") })
-        }
+        topBar = { TopAppBar(title = { Text("Sotark Play") }) }
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isLoading,
@@ -49,9 +47,6 @@ fun HomeScreen(
                     Text(stringResource(R.string.connection_error),
                         style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text(state.error!!, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(16.dp))
                     Button(onClick = viewModel::load) { Text(stringResource(R.string.retry)) }
                 }
                 else -> LazyColumn(
@@ -65,7 +60,7 @@ fun HomeScreen(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(state.topApps.take(6)) { app ->
+                                items(state.topApps.take(6), key = { it.id }) { app ->
                                     FeaturedAppCard(app = app, onClick = { onAppClick(app.id) })
                                 }
                             }
@@ -88,18 +83,9 @@ fun HomeScreen(
                     }
                     if (state.newApps.isNotEmpty()) {
                         item { SectionHeader(stringResource(R.string.new_apps)) }
-                        items(state.newApps) { app ->
+                        items(state.newApps, key = { it.id }) { app ->
                             Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                                 AppCard(app = app, onClick = { onAppClick(app.id) })
-                            }
-                        }
-                    }
-                    if (state.topApps.isEmpty() && state.newApps.isEmpty()) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(48.dp),
-                                contentAlignment = Alignment.Center) {
-                                Text("No apps yet",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
