@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sotark Play</string>
     <string name="home">Home</string>
@@ -12,13 +13,14 @@
     <string name="update">Update</string>
     <string name="installed">Installed</string>
     <string name="no_apk">APK unavailable</string>
-    <string name="downloading">Downloading...</string>
+    <string name="downloading">Downloading…</string>
     <string name="cancel">Cancel</string>
     <string name="retry">Retry</string>
     <string name="install_now">Install</string>
     <string name="error_loading">Loading error</string>
     <string name="no_reviews">No reviews yet</string>
     <string name="write_review">Write review</string>
+    <string name="write_review_title">Write a review</string>
     <string name="reviews">Reviews</string>
     <string name="description">Description</string>
     <string name="screenshots">Screenshots</string>
@@ -39,7 +41,7 @@
     <string name="apk_file">APK file</string>
     <string name="pick_apk">Tap to pick .apk</string>
     <string name="publish">Publish</string>
-    <string name="uploading">Uploading...</string>
+    <string name="uploading">Uploading…</string>
     <string name="fill_required">Fill name, package and developer</string>
     <string name="pick_apk_required">Pick an APK file</string>
     <string name="upload_error">Upload error</string>
@@ -48,17 +50,42 @@
     <string name="permission_needed">Permission needed</string>
     <string name="permission_text">To install apps, allow Sotark Play to install from unknown sources in settings.</string>
     <string name="open_settings">Open settings</string>
-    <string name="search_hint">Search apps...</string>
+    <string name="search_hint">Search apps…</string>
     <string name="nothing_found">Nothing found for</string>
     <string name="enter_app_name">Enter app name</string>
     <string name="connection_error">Connection error</string>
     <string name="your_name">Your name</string>
     <string name="comment">Comment (optional)</string>
+    <string name="what_to_tell">What would you like to say?</string>
+    <string name="review_name_hint">Your name</string>
     <string name="send">Send</string>
     <string name="notif_channel">Downloads</string>
     <string name="notif_downloading">Downloading</string>
-    <string name="what_to_tell">What would you like to say?</string>
-    <string name="review_name_hint">Your name</string>
-    <string name="write_review_title">Write a review</string>
     <string name="swipe_refresh">Pull to refresh</string>
+    <string name="age_0">0+</string>
+    <string name="age_6">6+</string>
+    <string name="age_12">12+</string>
+    <string name="age_16">16+</string>
+    <string name="age_18">18+</string>
+    <string name="dev_test_panel">Dev Test Panel</string>
+    <string name="server_test">Server response</string>
+    <string name="haptic_test">Haptic feedback</string>
+    <string name="audio_test">Audio</string>
+    <string name="notif_test">Notifications</string>
+    <string name="files_test">File integrity</string>
+    <string name="run_all_tests">Run all tests</string>
+    <string name="history">Download history</string>
+    <string name="sort_by">Sort by</string>
+    <string name="filter">Filter</string>
+    <string name="reset_filters">Reset filters</string>
+    <string name="min_rating">Minimum rating</string>
+    <string name="max_age">Max age rating</string>
+    <string name="all_ages">All</string>
+    <string name="uploading_progress">Uploading…</string>
+    <string name="beta_only">BETA ONLY</string>
+    <string name="sound_on">Sounds</string>
+    <string name="haptic_on">Haptic feedback</string>
+    <string name="appearance">Appearance</string>
+    <string name="sound_haptic">Sound and haptic</string>
+    <string name="download_history">History</string>
 </resources>
