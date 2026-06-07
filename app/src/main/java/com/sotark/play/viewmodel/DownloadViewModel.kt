@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sotark.play.data.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +38,8 @@ sealed class DownloadState {
 
 @HiltViewModel
 class DownloadViewModel @Inject constructor(
-    @ApplicationContext private val ctx: Context
+    @ApplicationContext private val ctx: Context,
+    private val sound: SoundManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -75,15 +77,17 @@ class DownloadViewModel @Inject constructor(
 
     fun download(appName: String, apkUrl: String) {
         if (_state.value is DownloadState.Downloading) return
-        // Cleanup old cached APKs first
+        sound.playClick()
         cleanCache()
         viewModelScope.launch {
             _state.value = DownloadState.Downloading(0)
             try {
                 val file = withContext(Dispatchers.IO) { doDownload(appName, apkUrl) }
+                sound.playSuccess()     // iota — установка
                 _state.value = DownloadState.ReadyToInstall(file)
                 notifManager.cancel(NOTIF_ID)
             } catch (e: Exception) {
+                sound.playError()       // gradient — ошибка
                 _state.value = DownloadState.Error(e.message ?: "Download error")
                 notifManager.cancel(NOTIF_ID)
             }
@@ -97,11 +101,11 @@ class DownloadViewModel @Inject constructor(
     private fun doDownload(appName: String, url: String): File {
         val resp = client.newCall(Request.Builder().url(url).build()).execute()
         if (!resp.isSuccessful) throw Exception("Server error ${resp.code}")
-        val body       = resp.body ?: throw Exception("Empty response")
-        val total      = body.contentLength()
-        val outDir     = File(ctx.cacheDir, "apks").also { it.mkdirs() }
-        val safeName   = appName.replace(Regex("[^a-zA-Z0-9_]"), "_")
-        val outFile    = File(outDir, "$safeName.apk")
+        val body     = resp.body ?: throw Exception("Empty response")
+        val total    = body.contentLength()
+        val outDir   = File(ctx.cacheDir, "apks").also { it.mkdirs() }
+        val safeName = appName.replace(Regex("[^a-zA-Z0-9_]"), "_")
+        val outFile  = File(outDir, "$safeName.apk")
 
         FileOutputStream(outFile).use { out ->
             body.byteStream().use { input ->
