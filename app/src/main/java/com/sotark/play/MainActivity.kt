@@ -1,13 +1,15 @@
 package com.sotark.play
 
 import android.Manifest
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddBox
@@ -17,12 +19,13 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.sotark.play.data.AppLanguage
+import com.sotark.play.data.AppSettings
 import com.sotark.play.data.SoundManager
 import com.sotark.play.ui.Screen
 import com.sotark.play.ui.screens.*
@@ -30,29 +33,42 @@ import com.sotark.play.ui.theme.SotarkPlayTheme
 import com.sotark.play.viewmodel.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
-import android.content.res.Configuration
-import androidx.core.os.LocaleListCompat
-import androidx.appcompat.app.AppCompatDelegate
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var soundManager: SoundManager
+    @Inject lateinit var appSettings: AppSettings
+
+    override fun attachBaseContext(base: Context) {
+        // Применяем сохранённый язык ДО инфляции layout — без мерцания
+        val prefs = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
+        val code  = prefs.getString("language", "en") ?: "en"
+        val locale = Locale(code)
+        Locale.setDefault(locale)
+        val config = base.resources.configuration.also { it.setLocale(locale) }
+        super.attachBaseContext(base.createConfigurationContext(config))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             val settingsVm: SettingsViewModel = hiltViewModel()
             val darkTheme      by settingsVm.darkTheme.collectAsState()
             val ukrainianTheme by settingsVm.ukrainianTheme.collectAsState()
             val language       by settingsVm.language.collectAsState()
 
-            // Смена языка без перезапуска Activity через AppCompatDelegate
+            // При смене языка — recreate() без артефактов
+            // Используем снапшот предыдущего языка чтобы не срабатывало при первом запуске
+            var prevLang by remember { mutableStateOf<AppLanguage?>(null) }
             LaunchedEffect(language) {
-                val locale = LocaleListCompat.forLanguageTags(language.code)
-                AppCompatDelegate.setApplicationLocales(locale)
+                if (prevLang != null && prevLang != language) {
+                    recreate()
+                }
+                prevLang = language
             }
 
             SotarkPlayTheme(darkTheme = darkTheme, ukrainianTheme = ukrainianTheme) {
@@ -74,11 +90,11 @@ fun SotarkPlayApp(soundManager: SoundManager) {
     )
     val showBottom = currentRoute in bottomRoutes
 
-    // Запрос разрешения уведомлений — сразу при старте, без перезагрузки
+    // Запрос разрешения уведомлений при первом запуске
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
-        ) { /* granted или нет — молча продолжаем */ }
+        ) {}
         LaunchedEffect(Unit) {
             permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -98,7 +114,7 @@ fun SotarkPlayApp(soundManager: SoundManager) {
                             selected = currentRoute == route,
                             onClick  = {
                                 if (currentRoute != route) {
-                                    soundManager.playClick()  // carbonate при смене вкладки
+                                    soundManager.playClick()
                                     navController.navigate(route) {
                                         popUpTo(Screen.Home.route) { saveState = true }
                                         launchSingleTop = true
@@ -162,7 +178,10 @@ fun SotarkPlayApp(soundManager: SoundManager) {
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
             ) { back ->
                 val appId = back.arguments?.getInt("appId") ?: return@composable
-                AppDetailScreen(appId = appId, onBack = { soundManager.playClick(); navController.popBackStack() })
+                AppDetailScreen(
+                    appId  = appId,
+                    onBack = { soundManager.playClick(); navController.popBackStack() }
+                )
             }
         }
     }
