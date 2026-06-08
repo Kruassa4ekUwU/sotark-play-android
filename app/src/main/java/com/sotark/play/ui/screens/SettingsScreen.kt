@@ -39,17 +39,18 @@ import com.sotark.play.BuildConfig
 import com.sotark.play.R
 import com.sotark.play.data.AppLanguage
 import com.sotark.play.data.SecretTheme
+import com.sotark.play.ui.theme.IsraelBlue
 import com.sotark.play.ui.theme.UkrainianBlue
 import com.sotark.play.ui.theme.UkrainianYellow
 import com.sotark.play.viewmodel.DownloadViewModel
 import com.sotark.play.viewmodel.SettingsViewModel
 
-// Данные секретных тем: id → (название-ключ, цвет превью)
-private val SECRET_THEMES = listOf(
-    SecretTheme.MATTE_METAL to (R.string.theme_matte_metal to Color(0xFFB0BEC5)),
-    SecretTheme.NEON        to (R.string.theme_neon        to Color(0xFF00FF88)),
-    SecretTheme.ONYX        to (R.string.theme_onyx        to Color(0xFFCFB980)),
-    SecretTheme.SUNSET      to (R.string.theme_sunset      to Color(0xFFFF6B35)),
+// Секретные темы: enum → (stringRes, цвет превью, эмодзи)
+private data class ThemeEntry(
+    val theme: SecretTheme,
+    val nameRes: Int,
+    val color: Color,
+    val emoji: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,46 +62,53 @@ fun SettingsScreen(
     viewModel: SettingsViewModel  = hiltViewModel(),
     downloadVm: DownloadViewModel = hiltViewModel()
 ) {
-    val darkTheme        by viewModel.darkTheme.collectAsState()
-    val language         by viewModel.language.collectAsState()
-    val ukrainianTheme   by viewModel.ukrainianTheme.collectAsState()
-    val easterUnlocked   by viewModel.easterEggUnlocked.collectAsState()
-    val easterShown      by viewModel.easterEggShown.collectAsState()
-    val secretMenu       by viewModel.secretMenuUnlocked.collectAsState()
-    val soundEnabled     by viewModel.soundEnabled.collectAsState()
-    val hapticEnabled    by viewModel.hapticEnabled.collectAsState()
-    val secretTheme      by viewModel.secretTheme.collectAsState()
-    val toggleCount      by viewModel.darkThemeToggleCount.collectAsState()
-    val ctx              = LocalContext.current
-
-    var showEasterEgg by remember { mutableStateOf(false) }
-    LaunchedEffect(easterUnlocked) {
-        if (easterUnlocked && !easterShown) showEasterEgg = true
-    }
+    val darkTheme           by viewModel.darkTheme.collectAsState()
+    val language            by viewModel.language.collectAsState()
+    val easterUnlocked      by viewModel.easterEggUnlocked.collectAsState()
+    val easterShown         by viewModel.easterEggShown.collectAsState()
+    val israelUnlocked      by viewModel.israelEasterEggUnlocked.collectAsState()
+    val israelShown         by viewModel.israelEasterEggShown.collectAsState()
+    val secretMenu          by viewModel.secretMenuUnlocked.collectAsState()
+    val soundEnabled        by viewModel.soundEnabled.collectAsState()
+    val hapticEnabled       by viewModel.hapticEnabled.collectAsState()
+    val secretTheme         by viewModel.secretTheme.collectAsState()
+    val toggleCount         by viewModel.darkThemeToggleCount.collectAsState()
+    val ctx                 = LocalContext.current
 
     var canInstall by remember { mutableStateOf(downloadVm.canInstallUnknownSources()) }
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { canInstall = downloadVm.canInstallUnknownSources() }
 
-    val isUk = ukrainianTheme || secretTheme == SecretTheme.NONE
+    // Показываем пасхалки
+    var showUkraineEgg by remember { mutableStateOf(false) }
+    var showIsraelEgg  by remember { mutableStateOf(false) }
+    LaunchedEffect(easterUnlocked) { if (easterUnlocked && !easterShown) showUkraineEgg = true }
+    LaunchedEffect(israelUnlocked) { if (israelUnlocked && !israelShown) showIsraelEgg  = true }
+
     val cardColor    = MaterialTheme.colorScheme.surfaceVariant
-    val textColor    = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    // Все секретные темы для меню
+    val themeEntries = buildList {
+        if (easterUnlocked) add(ThemeEntry(SecretTheme.UKRAINIAN, R.string.ukrainian_theme, UkrainianYellow, "🇺🇦"))
+        if (israelUnlocked)  add(ThemeEntry(SecretTheme.ISRAEL,   R.string.theme_israel,    IsraelBlue,      "🇮🇱"))
+        add(ThemeEntry(SecretTheme.MATTE_METAL, R.string.theme_matte_metal, Color(0xFFB0BEC5), "🔩"))
+        add(ThemeEntry(SecretTheme.NEON,        R.string.theme_neon,        Color(0xFF00FF88), "💚"))
+        add(ThemeEntry(SecretTheme.ONYX,        R.string.theme_onyx,        Color(0xFFCFB980), "🏆"))
+        add(ThemeEntry(SecretTheme.SUNSET,      R.string.theme_sunset,      Color(0xFFFF6B35), "🌅"))
+    }
 
     Scaffold(
         topBar = {
-            // Компактный TopAppBar
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.settings_title))
                         if (BuildConfig.IS_BETA) {
-                            Surface(shape = MaterialTheme.shapes.extraSmall,
-                                color = Color(0xFFFFA000)) {
-                                Text("BETA",
-                                    style = MaterialTheme.typography.labelSmall,
+                            Surface(shape = MaterialTheme.shapes.extraSmall, color = Color(0xFFFFA000)) {
+                                Text("BETA", style = MaterialTheme.typography.labelSmall,
                                     color = Color.White, fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp))
                             }
@@ -108,12 +116,8 @@ fun SettingsScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-                    }
-                },
-                // Компактная высота
-                windowInsets = TopAppBarDefaults.windowInsets
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+                }
             )
         }
     ) { padding ->
@@ -124,40 +128,29 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-
             // ── Версия ────────────────────────────────────────────────
-            SettingsRow(cardColor, icon = Icons.Filled.Info,
-                label = stringResource(R.string.version_label)) {
+            SRow(cardColor, Icons.Filled.Info, stringResource(R.string.version_label)) {
                 Text(BuildConfig.VERSION_NAME, color = subTextColor,
                     style = MaterialTheme.typography.bodyMedium)
             }
 
-            // ── Нет разрешения на установку ───────────────────────────
+            // ── Нет разрешения установки ──────────────────────────────
             if (!canInstall) {
                 Card(shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     onClick = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            permLauncher.launch(Intent(
-                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                Uri.parse("package:${ctx.packageName}")
-                            ))
-                        }
-                    }
-                ) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                            permLauncher.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:${ctx.packageName}")))
+                    }) {
                     Row(Modifier.fillMaxWidth().padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Filled.Warning, null,
-                            tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error)
                         Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.no_install_permission),
-                                fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.no_install_permission), fontWeight = FontWeight.Medium)
                             Text(stringResource(R.string.tap_to_allow),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                style = MaterialTheme.typography.bodySmall, color = subTextColor)
                         }
                         Icon(Icons.Filled.OpenInNew, null)
                     }
@@ -165,8 +158,8 @@ fun SettingsScreen(
             }
 
             // ── История ───────────────────────────────────────────────
-            SettingsRow(cardColor, icon = Icons.Filled.History,
-                label = stringResource(R.string.download_history), onClick = onHistoryClick) {
+            SRow(cardColor, Icons.Filled.History, stringResource(R.string.download_history),
+                onClick = onHistoryClick) {
                 Icon(Icons.Filled.ChevronRight, null, tint = subTextColor)
             }
 
@@ -180,12 +173,10 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Filled.BugReport, null, tint = Color(0xFFFFA000))
                         Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.dev_test_panel),
-                                color = Color.White, fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.dev_test_panel), color = Color.White,
+                                fontWeight = FontWeight.Medium)
                             Text(stringResource(R.string.dev_test_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFB0B0CC))
+                                style = MaterialTheme.typography.bodySmall, color = Color(0xFFB0B0CC))
                         }
                         Surface(shape = MaterialTheme.shapes.extraSmall, color = Color(0xFFFFA000)) {
                             Text("BETA", style = MaterialTheme.typography.labelSmall,
@@ -207,11 +198,9 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Filled.DarkMode, null,
-                            tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Filled.DarkMode, null, tint = MaterialTheme.colorScheme.primary)
                         Column {
                             Text(stringResource(R.string.dark_theme))
-                            // Подсказка о секрете (показывается когда начали нажимать)
                             AnimatedVisibility(visible = toggleCount in 1..4) {
                                 Text("${5 - toggleCount} ${stringResource(R.string.presses_left)}",
                                     style = MaterialTheme.typography.labelSmall,
@@ -219,84 +208,42 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    Switch(checked = darkTheme,
-                        onCheckedChange = { viewModel.toggleDarkTheme() })
-                }
-            }
-
-            // ── Украинская тема (пасхалка) ────────────────────────────
-            AnimatedVisibility(visible = easterUnlocked) {
-                Card(shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor =
-                        if (ukrainianTheme) Color(0xFF002D70) else cardColor)) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("🇺🇦", fontSize = 20.sp)
-                            Column {
-                                Text(stringResource(R.string.ukrainian_theme),
-                                    color = UkrainianYellow, fontWeight = FontWeight.Medium)
-                                Text(stringResource(R.string.secret_label),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = UkrainianYellow.copy(alpha = 0.7f))
-                            }
-                        }
-                        Switch(checked = ukrainianTheme,
-                            onCheckedChange = { viewModel.toggleUkrainianTheme() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor   = UkrainianYellow,
-                                checkedTrackColor   = Color(0xFF001A50)))
-                    }
+                    Switch(checked = darkTheme, onCheckedChange = { viewModel.toggleDarkTheme() })
                 }
             }
 
             // ── Секретное меню тем ────────────────────────────────────
-            AnimatedVisibility(
-                visible = secretMenu,
-                enter   = expandVertically() + fadeIn(),
-                exit    = shrinkVertically() + fadeOut()
-            ) {
+            AnimatedVisibility(visible = secretMenu || easterUnlocked || israelUnlocked,
+                enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     SLabel(stringResource(R.string.secret_themes))
-                    SECRET_THEMES.forEach { (theme, nameAndColor) ->
-                        val (nameRes, previewColor) = nameAndColor
-                        val isActive = secretTheme == theme
-                        Card(
-                            shape  = MaterialTheme.shapes.medium,
+                    themeEntries.forEach { entry ->
+                        val isActive = secretTheme == entry.theme
+                        Card(shape = MaterialTheme.shapes.medium,
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isActive) previewColor.copy(alpha = 0.2f)
+                                containerColor = if (isActive) entry.color.copy(alpha = 0.15f)
                                                  else cardColor),
-                            border = if (isActive) CardDefaults.outlinedCardBorder()
-                                     else null,
-                            onClick = { viewModel.setSecretTheme(theme) }
-                        ) {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            onClick = { viewModel.setSecretTheme(entry.theme) }) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                // Цветовой кружок-превью
-                                Box(Modifier.size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(previewColor))
-                                Text(stringResource(nameRes),
-                                    modifier = Modifier.weight(1f),
+                                // Эмодзи флага
+                                Text(entry.emoji, fontSize = 22.sp)
+                                // Цветной кружок
+                                Box(Modifier.size(20.dp).clip(CircleShape).background(entry.color))
+                                Text(stringResource(entry.nameRes), Modifier.weight(1f),
                                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal)
                                 if (isActive) {
-                                    Icon(Icons.Filled.Check, null,
-                                        tint = previewColor,
+                                    Icon(Icons.Filled.Check, null, tint = entry.color,
                                         modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
                     }
-                    // Сброс
                     if (secretTheme != SecretTheme.NONE) {
-                        TextButton(
-                            onClick = { viewModel.setSecretTheme(SecretTheme.NONE) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
+                        TextButton(onClick = { viewModel.setSecretTheme(SecretTheme.NONE) },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Filled.Refresh, null, Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(stringResource(R.string.reset_theme))
                         }
@@ -307,12 +254,10 @@ fun SettingsScreen(
             Spacer(Modifier.height(2.dp))
             SLabel(stringResource(R.string.sound_haptic))
 
-            SettingsRow(cardColor, icon = Icons.Filled.VolumeUp,
-                label = stringResource(R.string.sound_on)) {
+            SRow(cardColor, Icons.Filled.VolumeUp, stringResource(R.string.sound_on)) {
                 Switch(checked = soundEnabled, onCheckedChange = { viewModel.toggleSound() })
             }
-            SettingsRow(cardColor, icon = Icons.Filled.Vibration,
-                label = stringResource(R.string.haptic_on)) {
+            SRow(cardColor, Icons.Filled.Vibration, stringResource(R.string.haptic_on)) {
                 Switch(checked = hapticEnabled, onCheckedChange = { viewModel.toggleHaptic() })
             }
 
@@ -323,28 +268,22 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = cardColor)) {
                 Column(Modifier.selectableGroup()) {
                     AppLanguage.values().forEachIndexed { idx, lang ->
-                        Row(Modifier.fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween) {
                             Row(verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Icon(Icons.Filled.Language, null,
-                                    tint = if (language == lang)
-                                        MaterialTheme.colorScheme.primary
-                                    else subTextColor,
+                                    tint = if (language == lang) MaterialTheme.colorScheme.primary
+                                           else subTextColor,
                                     modifier = Modifier.size(20.dp))
-                                Text(lang.label,
-                                    style = MaterialTheme.typography.bodyMedium)
+                                Text(lang.label, style = MaterialTheme.typography.bodyMedium)
                             }
-                            RadioButton(
-                                selected = language == lang,
-                                onClick  = { viewModel.setLanguage(lang) }
-                            )
+                            RadioButton(selected = language == lang,
+                                onClick = { viewModel.setLanguage(lang) })
                         }
                         if (idx < AppLanguage.values().size - 1)
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp),
-                                thickness = 0.5.dp)
+                            HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                     }
                 }
             }
@@ -353,32 +292,77 @@ fun SettingsScreen(
         }
     }
 
-    // ── Пасхалка ─────────────────────────────────────────────────
-    if (showEasterEgg) {
-        Dialog(onDismissRequest = { showEasterEgg = false; viewModel.markEasterEggShown() }) {
-            Card(shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = UkrainianBlue)) {
-                Column(Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.easter_egg_title),
-                        color = UkrainianYellow, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Box(Modifier.size(100.dp).clip(CircleShape)
-                            .background(UkrainianYellow.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center) {
-                        Text("🇺🇦", fontSize = 48.sp)
-                    }
-                    Text(stringResource(R.string.easter_egg_desc),
-                        color = UkrainianYellow, textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Medium)
-                    Text(stringResource(R.string.ukrainian_theme_unlocked),
-                        color = Color.White, style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center)
-                    Button(
-                        onClick = { showEasterEgg = false; viewModel.markEasterEggShown() },
-                        colors  = ButtonDefaults.buttonColors(containerColor = UkrainianYellow)
-                    ) { Text(stringResource(R.string.cool_button),
-                        color = UkrainianBlue, fontWeight = FontWeight.Bold) }
+    // ── Пасхалка Украина ──────────────────────────────────────────────────────
+    if (showUkraineEgg) {
+        EasterEggDialog(
+            bgColor     = UkrainianBlue,
+            accentColor = UkrainianYellow,
+            imageRes    = R.drawable.easter_egg_founder,
+            emoji       = "🇺🇦",
+            titleRes    = R.string.easter_egg_title,
+            descRes     = R.string.easter_egg_desc,
+            subtitleRes = R.string.ukrainian_theme_unlocked,
+            buttonRes   = R.string.cool_button,
+            onDismiss   = { showUkraineEgg = false; viewModel.markEasterEggShown() }
+        )
+    }
+
+    // ── Пасхалка Израиль ──────────────────────────────────────────────────────
+    if (showIsraelEgg) {
+        EasterEggDialog(
+            bgColor     = IsraelBlue,
+            accentColor = Color.White,
+            imageRes    = R.drawable.easter_egg_israel,
+            emoji       = "🇮🇱",
+            titleRes    = R.string.easter_egg_israel_title,
+            descRes     = R.string.easter_egg_israel_desc,
+            subtitleRes = R.string.israel_theme_unlocked,
+            buttonRes   = R.string.cool_button,
+            onDismiss   = { showIsraelEgg = false; viewModel.markIsraelEasterEggShown() }
+        )
+    }
+}
+
+@Composable
+private fun EasterEggDialog(
+    bgColor: Color,
+    accentColor: Color,
+    imageRes: Int,
+    emoji: String,
+    titleRes: Int,
+    descRes: Int,
+    subtitleRes: Int,
+    buttonRes: Int,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = MaterialTheme.shapes.extraLarge,
+            colors = CardDefaults.cardColors(containerColor = bgColor)) {
+            Column(Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(titleRes), color = accentColor,
+                    fontWeight = FontWeight.ExtraBold, fontSize = 18.sp,
+                    textAlign = TextAlign.Center)
+                // Фото в круге
+                Box(Modifier.size(110.dp).clip(CircleShape)
+                        .background(accentColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center) {
+                    AsyncImage(
+                        model            = imageRes,
+                        contentDescription = null,
+                        contentScale     = ContentScale.Crop,
+                        modifier         = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                }
+                Text(emoji, fontSize = 36.sp)
+                Text(stringResource(descRes), color = accentColor,
+                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+                Text(stringResource(subtitleRes), color = accentColor.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                Button(onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)) {
+                    Text(stringResource(buttonRes), color = bgColor, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -393,16 +377,13 @@ private fun SLabel(text: String) {
 }
 
 @Composable
-private fun SettingsRow(
+private fun SRow(
     bgColor: Color,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit
 ) {
-    val mod = if (onClick != null)
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onClick)
-    else Modifier.fillMaxWidth()
     Card(shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = bgColor),
         onClick = onClick ?: {}) {
