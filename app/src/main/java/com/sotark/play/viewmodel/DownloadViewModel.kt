@@ -15,7 +15,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sotark.play.data.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -38,8 +37,7 @@ sealed class DownloadState {
 
 @HiltViewModel
 class DownloadViewModel @Inject constructor(
-    @ApplicationContext private val ctx: Context,
-    private val sound: SoundManager
+    @ApplicationContext private val ctx: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -66,27 +64,21 @@ class DownloadViewModel @Inject constructor(
 
     fun openInstallPermissionSettings() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ctx.startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${ctx.packageName}"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
+            ctx.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 
     fun download(appName: String, apkUrl: String) {
         if (_state.value is DownloadState.Downloading) return
-        sound.playClick()
         cleanCache()
         viewModelScope.launch {
             _state.value = DownloadState.Downloading(0)
             try {
                 val file = withContext(Dispatchers.IO) { doDownload(appName, apkUrl) }
-                sound.playNotification()   // iota — уведомление о завершении загрузки
                 showFinishedNotif(appName)
                 _state.value = DownloadState.ReadyToInstall(file)
             } catch (e: Exception) {
-                sound.playError()          // gradient — ошибка
                 _state.value = DownloadState.Error(e.message ?: "Download failed")
                 cancelNotif()
             }
@@ -99,9 +91,7 @@ class DownloadViewModel @Inject constructor(
         val body   = resp.body ?: throw Exception("Empty body")
         val total  = body.contentLength()
         val outDir = File(ctx.cacheDir, "apks").also { it.mkdirs() }
-        val safe   = appName.replace(Regex("[^a-zA-Z0-9_]"), "_")
-        val out    = File(outDir, "$safe.apk")
-
+        val out    = File(outDir, "${appName.replace(Regex("[^a-zA-Z0-9_]"), "_")}.apk")
         FileOutputStream(out).use { fos ->
             body.byteStream().use { bis ->
                 val buf = ByteArray(16384)
@@ -109,11 +99,7 @@ class DownloadViewModel @Inject constructor(
                 while (bis.read(buf).also { n = it } != -1) {
                     fos.write(buf, 0, n); downloaded += n
                     val pct = if (total > 0) (downloaded * 100 / total).toInt() else 0
-                    if (pct != lastPct) {
-                        lastPct = pct
-                        _state.value = DownloadState.Downloading(pct)
-                        showProgressNotif(appName, pct)
-                    }
+                    if (pct != lastPct) { lastPct = pct; _state.value = DownloadState.Downloading(pct); showProgressNotif(appName, pct) }
                 }
             }
         }
@@ -121,40 +107,28 @@ class DownloadViewModel @Inject constructor(
     }
 
     fun installApk(file: File) {
-        sound.playInstall()   // iota — при установке
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", file)
-        ctx.startActivity(
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            }
-        )
+        ctx.startActivity(Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     fun reset() { cleanCache(); _state.value = DownloadState.Idle }
+    private fun cleanCache() { File(ctx.cacheDir, "apks").listFiles()?.forEach { it.delete() } }
 
-    private fun cleanCache() {
-        File(ctx.cacheDir, "apks").listFiles()?.forEach { it.delete() }
-    }
-
-    private fun hasNotifPermission() =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            ActivityCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) ==
-                PackageManager.PERMISSION_GRANTED
-        else true
+    private fun hasNotifPermission() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        ActivityCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    else true
 
     private fun showProgressNotif(name: String, pct: Int) {
         if (!hasNotifPermission()) return
         NotificationManagerCompat.from(ctx).notify(NOTIF_ID,
             NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("Sotark Play — $name")
-                .setContentText("$pct%")
-                .setProgress(100, pct, pct == 0)
-                .setOngoing(true).setSilent(true).build()
-        )
+                .setContentTitle("Sotark Play — $name").setContentText("$pct%")
+                .setProgress(100, pct, pct == 0).setOngoing(true).setSilent(true).build())
     }
 
     private fun showFinishedNotif(name: String) {
@@ -162,21 +136,17 @@ class DownloadViewModel @Inject constructor(
         NotificationManagerCompat.from(ctx).notify(NOTIF_ID,
             NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle("Sotark Play")
-                .setContentText("$name готов к установке")
-                .setAutoCancel(true).build()
-        )
+                .setContentTitle("Sotark Play").setContentText("$name готов к установке")
+                .setAutoCancel(true).build())
     }
 
-    private fun cancelNotif() { NotificationManagerCompat.from(ctx).cancel(NOTIF_ID) }
+    private fun cancelNotif() = NotificationManagerCompat.from(ctx).cancel(NOTIF_ID)
 
     private fun createNotifChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ctx.getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, "Загрузки",
-                        NotificationManager.IMPORTANCE_LOW)
-                )
+                .createNotificationChannel(NotificationChannel(CHANNEL_ID, "Загрузки",
+                    NotificationManager.IMPORTANCE_LOW))
         }
     }
 }
