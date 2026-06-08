@@ -3,6 +3,7 @@ package com.sotark.play.viewmodel
 import androidx.lifecycle.ViewModel
 import com.sotark.play.data.AppLanguage
 import com.sotark.play.data.AppSettings
+import com.sotark.play.data.SecretTheme
 import com.sotark.play.data.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
@@ -14,26 +15,30 @@ class SettingsViewModel @Inject constructor(
     private val sound: SoundManager
 ) : ViewModel() {
 
-    val darkTheme:          StateFlow<Boolean>     = settings.darkTheme
-    val language:           StateFlow<AppLanguage> = settings.language
-    val ukrainianTheme:     StateFlow<Boolean>     = settings.ukrainianTheme
-    val easterEggUnlocked:  StateFlow<Boolean>     = settings.easterEggUnlocked
-    val easterEggShown:     StateFlow<Boolean>     = settings.easterEggShown
-    val secretMenuUnlocked: StateFlow<Boolean>     = settings.secretMenuUnlocked
-    val soundEnabled:       StateFlow<Boolean>     = settings.soundEnabled
-    val hapticEnabled:      StateFlow<Boolean>     = settings.hapticEnabled
+    val darkTheme:           StateFlow<Boolean>     = settings.darkTheme
+    val language:            StateFlow<AppLanguage> = settings.language
+    val ukrainianTheme:      StateFlow<Boolean>     = settings.ukrainianTheme
+    val easterEggUnlocked:   StateFlow<Boolean>     = settings.easterEggUnlocked
+    val easterEggShown:      StateFlow<Boolean>     = settings.easterEggShown
+    val secretMenuUnlocked:  StateFlow<Boolean>     = settings.secretMenuUnlocked
+    val soundEnabled:        StateFlow<Boolean>     = settings.soundEnabled
+    val hapticEnabled:       StateFlow<Boolean>     = settings.hapticEnabled
+    val secretTheme:         StateFlow<SecretTheme> = settings.secretTheme
+    val darkThemeToggleCount:StateFlow<Int>         = settings.darkThemeToggleCount
 
+    // Пасхалка: украинский язык × 10
     private var ukrainianTapCount = 0
-    private var themeTapCount     = 0
 
     fun toggleDarkTheme() {
         sound.playClick()
         settings.setDarkTheme(!darkTheme.value)
-        themeTapCount++
-        if (themeTapCount >= 5) {
+
+        // 5 переключений подряд → секретное меню
+        val count = settings.darkThemeToggleCount.value
+        if (count >= 5) {
             settings.unlockSecretMenu()
+            settings.resetDarkThemeToggleCount()
             sound.playSecret()
-            themeTapCount = 0
         }
     }
 
@@ -52,8 +57,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setSecretTheme(theme: SecretTheme) {
+        sound.playClick()
+        // Если нажали на уже активную — сбрасываем
+        val new = if (settings.secretTheme.value == theme) SecretTheme.NONE else theme
+        settings.setSecretTheme(new)
+        if (new != SecretTheme.NONE) sound.playSecret()
+    }
+
     fun toggleUkrainianTheme() { sound.playClick(); settings.setUkrainianTheme(!ukrainianTheme.value) }
-    fun toggleSound()           { settings.setSoundEnabled(!soundEnabled.value) }  // без звука при выкл
-    fun toggleHaptic()          { sound.playClick(); settings.setHapticEnabled(!hapticEnabled.value) }
-    fun markEasterEggShown()    = settings.markEasterEggShown()
+    fun toggleSound()          { settings.setSoundEnabled(!soundEnabled.value) }
+    fun toggleHaptic()         { sound.playClick(); settings.setHapticEnabled(!hapticEnabled.value) }
+    fun markEasterEggShown()   = settings.markEasterEggShown()
 }
