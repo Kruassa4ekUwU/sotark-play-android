@@ -118,4 +118,8 @@
     <string name="cat_travel">טיולים</string>
     <string name="cat_productivity">פרודוקטיביות</string>
     <string name="cat_other">אחר</string>
+    <string name="theme_israel">ישראל</string>
+    <string name="easter_egg_israel_title">פסחלקה סודית! 🇮🇱</string>
+    <string name="easter_egg_israel_desc">מייסד Sotark</string>
+    <string name="israel_theme_unlocked">ערכת ישראל נפתחה!</string>
 </resources>
