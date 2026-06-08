@@ -2,7 +2,6 @@ package com.sotark.play.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sotark.play.data.SoundManager
 import com.sotark.play.data.model.App
 import com.sotark.play.data.model.Review
 import com.sotark.play.data.repository.AppRepository
@@ -16,14 +15,12 @@ data class AppDetailUiState(
     val app: App?             = null,
     val reviews: List<Review> = emptyList(),
     val isLoading: Boolean    = false,
-    val error: String?        = null,
-    val reviewSent: Boolean   = false
+    val error: String?        = null
 )
 
 @HiltViewModel
 class AppDetailViewModel @Inject constructor(
-    private val repo: AppRepository,
-    private val sound: SoundManager
+    private val repo: AppRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AppDetailUiState())
@@ -34,8 +31,6 @@ class AppDetailViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             val app     = repo.getApp(appId)
             val reviews = repo.getReviews(appId)
-            val isError = app is Result.Error
-            if (isError) sound.playError()
             _state.update {
                 it.copy(
                     isLoading = false,
@@ -49,14 +44,9 @@ class AppDetailViewModel @Inject constructor(
 
     fun postReview(appId: Int, author: String, rating: Int, text: String) {
         viewModelScope.launch {
-            sound.playClick()
             repo.postReview(appId, author, rating, text)
-            sound.playSuccess()
-            _state.update { it.copy(reviewSent = true) }
             val reviews = repo.getReviews(appId)
             if (reviews is Result.Success) _state.update { it.copy(reviews = reviews.data) }
         }
     }
-
-    fun resetReviewSent() { _state.update { it.copy(reviewSent = false) } }
 }
