@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,11 +40,24 @@ class MainActivity : AppCompatActivity() {
     @Inject lateinit var soundManager: SoundManager
 
     override fun attachBaseContext(base: Context) {
-        val prefs  = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
-        val code   = prefs.getString("language", "en") ?: "en"
-        val locale = Locale(code)
+        val prefs = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
+        val code  = prefs.getString("language", "en") ?: "en"
+
+        // Для иврита Android исторически использует "iw", но BCP-47 тег — "he"
+        // Locale.Builder корректно обрабатывает оба варианта
+        val locale = when (code) {
+            "iw", "he" -> Locale.Builder().setLanguage("iw").build()
+            else        -> Locale(code)
+        }
+
         Locale.setDefault(locale)
-        val config = base.resources.configuration.also { it.setLocale(locale) }
+        val config = base.resources.configuration.also { cfg ->
+            cfg.setLocale(locale)
+            // RTL для иврита
+            if (code == "iw" || code == "he") {
+                cfg.setLayoutDirection(locale)
+            }
+        }
         super.attachBaseContext(base.createConfigurationContext(config))
     }
 
