@@ -2,7 +2,6 @@ package com.sotark.play.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sotark.play.data.SoundManager
 import com.sotark.play.data.model.App
 import com.sotark.play.data.model.Category
 import com.sotark.play.data.repository.AppRepository
@@ -22,19 +21,14 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repo: AppRepository,
-    private val sound: SoundManager
+    private val repo: AppRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
-    init {
-        sound.playLaunch()   // scamper — один раз при создании ViewModel (= запуск приложения)
-        load()
-    }
+    init { load() }
 
-    /** Публичный — вызывается swipe-to-refresh, БЕЗ звука */
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
