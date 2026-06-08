@@ -54,10 +54,10 @@
     <string name="nothing_found">Нічого не знайдено за</string>
     <string name="enter_app_name">Введіть назву застосунку</string>
     <string name="connection_error">Помилка підключення до сервера</string>
-    <string name="your_name">Ваше ім\'я</string>
-    <string name="comment">Коментар (необов\'язково)</string>
+    <string name="your_name">Ваше ім'я</string>
+    <string name="comment">Коментар (необов'язково)</string>
     <string name="what_to_tell">Що хочете розповісти?</string>
-    <string name="review_name_hint">Ваше ім\'я</string>
+    <string name="review_name_hint">Ваше ім'я</string>
     <string name="send">Надіслати</string>
     <string name="notif_channel">Завантаження</string>
     <string name="notif_downloading">Завантаження</string>
