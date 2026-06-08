@@ -72,7 +72,6 @@ fun SettingsScreen(
     val soundEnabled        by viewModel.soundEnabled.collectAsState()
     val hapticEnabled       by viewModel.hapticEnabled.collectAsState()
     val secretTheme         by viewModel.secretTheme.collectAsState()
-    val toggleCount         by viewModel.darkThemeToggleCount.collectAsState()
     val ctx                 = LocalContext.current
 
     var canInstall by remember { mutableStateOf(downloadVm.canInstallUnknownSources()) }
@@ -199,14 +198,7 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Filled.DarkMode, null, tint = MaterialTheme.colorScheme.primary)
-                        Column {
-                            Text(stringResource(R.string.dark_theme))
-                            AnimatedVisibility(visible = toggleCount in 1..4) {
-                                Text("${5 - toggleCount} ${stringResource(R.string.presses_left)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
+                        Text(stringResource(R.string.dark_theme))
                     }
                     Switch(checked = darkTheme, onCheckedChange = { viewModel.toggleDarkTheme() })
                 }
