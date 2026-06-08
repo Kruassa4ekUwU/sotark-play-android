@@ -18,6 +18,8 @@ enum class AppLanguage(val code: String, val label: String) {
 
 enum class SecretTheme(val id: String) {
     NONE("none"),
+    UKRAINIAN("ukrainian"),
+    ISRAEL("israel"),
     MATTE_METAL("matte_metal"),
     NEON("neon"),
     ONYX("onyx"),
@@ -34,14 +36,30 @@ class AppSettings @Inject constructor(
     private val _darkTheme = MutableStateFlow(prefs.getBoolean("dark_theme", false))
     val darkTheme: StateFlow<Boolean> = _darkTheme.asStateFlow()
 
-    private val _ukrainianTheme = MutableStateFlow(prefs.getBoolean("ukrainian_theme", false))
-    val ukrainianTheme: StateFlow<Boolean> = _ukrainianTheme.asStateFlow()
+    // ukrainianTheme теперь = secretTheme == UKRAINIAN, но оставляем для совместимости
+    val ukrainianTheme: StateFlow<Boolean> get() = _ukrainianThemeCompat
+
+    private val _secretTheme = MutableStateFlow(
+        SecretTheme.values().find { it.id == prefs.getString("secret_theme", "none") }
+            ?: SecretTheme.NONE
+    )
+    val secretTheme: StateFlow<SecretTheme> = _secretTheme.asStateFlow()
+
+    private val _ukrainianThemeCompat = MutableStateFlow(
+        _secretTheme.value == SecretTheme.UKRAINIAN
+    )
 
     private val _easterEggUnlocked = MutableStateFlow(prefs.getBoolean("easter_egg", false))
     val easterEggUnlocked: StateFlow<Boolean> = _easterEggUnlocked.asStateFlow()
 
     private val _easterEggShown = MutableStateFlow(prefs.getBoolean("easter_egg_shown", false))
     val easterEggShown: StateFlow<Boolean> = _easterEggShown.asStateFlow()
+
+    private val _israelEasterEggUnlocked = MutableStateFlow(prefs.getBoolean("israel_easter_egg", false))
+    val israelEasterEggUnlocked: StateFlow<Boolean> = _israelEasterEggUnlocked.asStateFlow()
+
+    private val _israelEasterEggShown = MutableStateFlow(prefs.getBoolean("israel_easter_egg_shown", false))
+    val israelEasterEggShown: StateFlow<Boolean> = _israelEasterEggShown.asStateFlow()
 
     private val _secretMenuUnlocked = MutableStateFlow(prefs.getBoolean("secret_menu", false))
     val secretMenuUnlocked: StateFlow<Boolean> = _secretMenuUnlocked.asStateFlow()
@@ -58,24 +76,12 @@ class AppSettings @Inject constructor(
     )
     val language: StateFlow<AppLanguage> = _language.asStateFlow()
 
-    private val _secretTheme = MutableStateFlow(
-        SecretTheme.values().find { it.id == prefs.getString("secret_theme", "none") }
-            ?: SecretTheme.NONE
-    )
-    val secretTheme: StateFlow<SecretTheme> = _secretTheme.asStateFlow()
-
-    // Счётчик переключений темной/светлой темы — для разблокировки секретного меню
-    private val _darkThemeToggleCount = MutableStateFlow(
-        prefs.getInt("dark_theme_toggle_count", 0)
-    )
+    private val _darkThemeToggleCount = MutableStateFlow(prefs.getInt("dark_theme_toggle_count", 0))
     val darkThemeToggleCount: StateFlow<Int> = _darkThemeToggleCount.asStateFlow()
 
     fun setDarkTheme(v: Boolean) {
         val newCount = _darkThemeToggleCount.value + 1
-        prefs.edit()
-            .putBoolean("dark_theme", v)
-            .putInt("dark_theme_toggle_count", newCount)
-            .apply()
+        prefs.edit().putBoolean("dark_theme", v).putInt("dark_theme_toggle_count", newCount).apply()
         _darkTheme.value = v
         _darkThemeToggleCount.value = newCount
     }
@@ -89,26 +95,41 @@ class AppSettings @Inject constructor(
     fun setHapticEnabled(v: Boolean) { prefs.edit().putBoolean("haptic_enabled", v).apply(); _hapticEnabled.value = v }
 
     fun unlockEasterEgg() {
-        prefs.edit().putBoolean("easter_egg", true).putBoolean("ukrainian_theme", true).apply()
+        prefs.edit().putBoolean("easter_egg", true).apply()
         _easterEggUnlocked.value = true
-        _ukrainianTheme.value    = true
+        // Автоматически включаем украинскую тему
+        setSecretTheme(SecretTheme.UKRAINIAN)
     }
     fun markEasterEggShown() {
         prefs.edit().putBoolean("easter_egg_shown", true).apply()
         _easterEggShown.value = true
     }
+
+    fun unlockIsraelEasterEgg() {
+        prefs.edit().putBoolean("israel_easter_egg", true).apply()
+        _israelEasterEggUnlocked.value = true
+        setSecretTheme(SecretTheme.ISRAEL)
+    }
+    fun markIsraelEasterEggShown() {
+        prefs.edit().putBoolean("israel_easter_egg_shown", true).apply()
+        _israelEasterEggShown.value = true
+    }
+
     fun unlockSecretMenu() {
         prefs.edit().putBoolean("secret_menu", true).apply()
         _secretMenuUnlocked.value = true
     }
-    fun setUkrainianTheme(v: Boolean) {
-        prefs.edit().putBoolean("ukrainian_theme", v).apply()
-        _ukrainianTheme.value = v
-    }
+
     fun setSecretTheme(t: SecretTheme) {
         prefs.edit().putString("secret_theme", t.id).apply()
         _secretTheme.value = t
+        _ukrainianThemeCompat.value = (t == SecretTheme.UKRAINIAN)
     }
+
+    fun setUkrainianTheme(v: Boolean) {
+        setSecretTheme(if (v) SecretTheme.UKRAINIAN else SecretTheme.NONE)
+    }
+
     fun setLanguage(lang: AppLanguage) {
         prefs.edit().putString("language", lang.code).apply()
         _language.value = lang
