@@ -5,19 +5,52 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.sotark.play.data.SecretTheme
 
-// Основной синий
 val BluePrimary   = Color(0xFF1A73E8)
 val BlueSecondary = Color(0xFF4285F4)
-
-// Ukrainian
 val UkrainianBlue   = Color(0xFF005BBB)
 val UkrainianYellow = Color(0xFFFFD500)
+val IsraelBlue  = Color(0xFF0038B8)
+val IsraelWhite = Color(0xFFFFFFFF)
 
 @Suppress("DEPRECATION")
 @Deprecated("Use MaterialTheme.colorScheme.primary")
 val GreenPrimary = BluePrimary
 
-// ── Секретные темы ────────────────────────────────────────────────────────────
+// ── Секретные темы ──────────────────────────────────────────────────────────
+
+private val UkrainianColors = darkColorScheme(
+    primary          = UkrainianYellow,
+    onPrimary        = Color(0xFF1A1A1A),
+    secondary        = Color(0xFFFFE135),
+    background       = UkrainianBlue,
+    surface          = Color(0xFF004A9E),
+    surfaceVariant   = Color(0xFF003D85),
+    onBackground     = UkrainianYellow,
+    onSurface        = UkrainianYellow,
+    onSurfaceVariant = Color(0xFFFFEB80),
+    outline          = UkrainianYellow.copy(alpha = 0.5f),
+    primaryContainer    = Color(0xFF003580),
+    onPrimaryContainer  = UkrainianYellow,
+    secondaryContainer  = Color(0xFF004A9E),
+    onSecondaryContainer = UkrainianYellow,
+)
+
+private val IsraelColors = lightColorScheme(
+    primary          = IsraelBlue,
+    onPrimary        = IsraelWhite,
+    secondary        = Color(0xFF0057D8),
+    background       = IsraelWhite,
+    surface          = Color(0xFFF5F8FF),
+    surfaceVariant   = Color(0xFFE8EEFF),
+    onBackground     = IsraelBlue,
+    onSurface        = IsraelBlue,
+    onSurfaceVariant = Color(0xFF4466AA),
+    outline          = IsraelBlue.copy(alpha = 0.4f),
+    primaryContainer    = Color(0xFFDDE8FF),
+    onPrimaryContainer  = IsraelBlue,
+    secondaryContainer  = Color(0xFFCCDDFF),
+    onSecondaryContainer = IsraelBlue,
+)
 
 private val MatteMetalDark = darkColorScheme(
     primary          = Color(0xFFB0BEC5),
@@ -69,26 +102,6 @@ private val SunsetLight = lightColorScheme(
     onSurfaceVariant = Color(0xFF7A4A20)
 )
 
-private val UkrainianColors = darkColorScheme(
-    primary          = UkrainianYellow,
-    onPrimary        = Color(0xFF1A1A1A),
-    secondary        = Color(0xFFFFE135),
-    background       = UkrainianBlue,
-    surface          = Color(0xFF004A9E),
-    surfaceVariant   = Color(0xFF003D85),
-    onBackground     = UkrainianYellow,
-    onSurface        = UkrainianYellow,
-    onSurfaceVariant = Color(0xFFFFEB80),
-    outline          = UkrainianYellow.copy(alpha = 0.5f),
-    outlineVariant   = UkrainianYellow.copy(alpha = 0.3f),
-    inverseSurface   = UkrainianYellow,
-    inverseOnSurface = UkrainianBlue,
-    primaryContainer    = Color(0xFF003580),
-    onPrimaryContainer  = UkrainianYellow,
-    secondaryContainer  = Color(0xFF004A9E),
-    onSecondaryContainer = UkrainianYellow,
-)
-
 private val DarkColors = darkColorScheme(
     primary          = BluePrimary,
     onPrimary        = Color.White,
@@ -120,14 +133,14 @@ fun SotarkPlayTheme(
     secretTheme: SecretTheme = SecretTheme.NONE,
     content: @Composable () -> Unit
 ) {
-    val colors = when {
-        ukrainianTheme                    -> UkrainianColors
-        secretTheme == SecretTheme.MATTE_METAL -> MatteMetalDark
-        secretTheme == SecretTheme.NEON        -> NeonDark
-        secretTheme == SecretTheme.ONYX        -> OnyxDark
-        secretTheme == SecretTheme.SUNSET      -> SunsetLight
-        darkTheme                         -> DarkColors
-        else                              -> LightColors
+    val colors = when (secretTheme) {
+        SecretTheme.UKRAINIAN   -> UkrainianColors
+        SecretTheme.ISRAEL      -> IsraelColors
+        SecretTheme.MATTE_METAL -> MatteMetalDark
+        SecretTheme.NEON        -> NeonDark
+        SecretTheme.ONYX        -> OnyxDark
+        SecretTheme.SUNSET      -> SunsetLight
+        SecretTheme.NONE        -> if (darkTheme) DarkColors else LightColors
     }
     MaterialTheme(colorScheme = colors, typography = Typography(), content = content)
 }
