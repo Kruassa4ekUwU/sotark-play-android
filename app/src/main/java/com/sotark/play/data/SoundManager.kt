@@ -37,87 +37,78 @@ class SoundManager @Inject constructor(
             @Suppress("DEPRECATION")
             ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
-    private inner class Sound(val resId: Int) {
-        var poolId: Int  = 0
-        var ready: Boolean = false
-        // Очередь: пара (volume, vibrateMs/-1 для error pattern)
-        val pending = mutableListOf<Pair<Float, Long>>()
-    }
+    private data class SoundEntry(
+        var poolId: Int = 0,
+        var ready: Boolean = false,
+        val pending: MutableList<Pair<Float, Long>> = mutableListOf()
+    )
 
-    private val scamper   = Sound(R.raw.scamper)
-    private val carbonate = Sound(R.raw.carbonate)
-    private val iota      = Sound(R.raw.iota)
-    private val gradient  = Sound(R.raw.gradient)
-    private val discovery = Sound(R.raw.discovery)
+    // Сначала создаём entries, потом загружаем — listener уже установлен
+    private val scamper   = SoundEntry()
+    private val carbonate = SoundEntry()
+    private val iota      = SoundEntry()
+    private val gradient  = SoundEntry()
+    private val discovery = SoundEntry()
 
-    private val allSounds = listOf(scamper, carbonate, iota, gradient, discovery)
+    // Карта poolId → entry (заполняется после load)
+    private val idMap = mutableMapOf<Int, SoundEntry>()
 
-    private var launchPending = false
-    private var launchPlayed  = false
+    private var launchPlayed = false
 
     init {
+        // СНАЧАЛА listener, ПОТОМ load — иначе быстрые загрузки пропускаем
         pool.setOnLoadCompleteListener { _, sampleId, status ->
-            if (status == 0) {
-                val sound = allSounds.firstOrNull { it.poolId == sampleId } ?: return@setOnLoadCompleteListener
-                sound.ready = true
-                // Воспроизводим всё из очереди на главном потоке
-                mainHandler.post {
-                    sound.pending.forEach { (vol, vibMs) ->
-                        pool.play(sound.poolId, vol, vol, 1, 0, 1f)
-                        if (vibMs == -1L) doVibrateError() else doVibrate(vibMs)
+            if (status != 0) return@setOnLoadCompleteListener
+            val entry = idMap[sampleId] ?: return@setOnLoadCompleteListener
+            entry.ready = true
+            mainHandler.post {
+                entry.pending.forEach { (vol, vibMs) ->
+                    if (settings.soundEnabled.value)
+                        pool.play(entry.poolId, vol, vol, 1, 0, 1f)
+                    when {
+                        vibMs == -1L -> doVibrateError()
+                        vibMs  >  0L -> doVibrate(vibMs)
                     }
-                    sound.pending.clear()
                 }
+                entry.pending.clear()
             }
         }
-        // Загружаем все звуки — poolId присваивается после load()
-        allSounds.forEach { it.poolId = pool.load(ctx, it.resId, 1) }
+        // Загружаем и регистрируем в карте
+        scamper.poolId   = pool.load(ctx, R.raw.scamper,   1).also { idMap[it] = scamper   }
+        carbonate.poolId = pool.load(ctx, R.raw.carbonate, 1).also { idMap[it] = carbonate }
+        iota.poolId      = pool.load(ctx, R.raw.iota,      1).also { idMap[it] = iota      }
+        gradient.poolId  = pool.load(ctx, R.raw.gradient,  1).also { idMap[it] = gradient  }
+        discovery.poolId = pool.load(ctx, R.raw.discovery, 1).also { idMap[it] = discovery }
     }
 
     private fun se() = settings.soundEnabled.value
     private fun he() = settings.hapticEnabled.value
 
-    /** Воспроизвести звук. Если ещё не загружен — добавить в очередь. */
-    private fun play(sound: Sound, vol: Float = 1f, vibMs: Long = 0L) {
-        if (!se() && vibMs == 0L) return
-        if (sound.ready) {
-            if (se()) pool.play(sound.poolId, vol, vol, 1, 0, 1f)
-            if (vibMs == -1L) doVibrateError() else if (vibMs > 0) doVibrate(vibMs)
+    private fun play(entry: SoundEntry, vol: Float = 1f, vibMs: Long = 0L) {
+        if (entry.ready) {
+            if (se()) pool.play(entry.poolId, vol, vol, 1, 0, 1f)
+            when {
+                vibMs == -1L -> doVibrateError()
+                vibMs  >  0L -> doVibrate(vibMs)
+            }
         } else {
-            // Звук ещё грузится — ставим в очередь
-            sound.pending.add(vol to vibMs)
+            // Ставим в очередь — воспроизведётся после загрузки
+            entry.pending.add(vol to vibMs)
         }
     }
 
-    // ── Публичное API ─────────────────────────────────────────────
-
-    /** scamper — только 1 раз при запуске */
     fun playLaunch() {
-        if (launchPlayed || launchPending) return
-        launchPending = true
-        launchPlayed  = true
+        if (launchPlayed) return
+        launchPlayed = true
         play(scamper, 1f, 40L)
     }
 
-    /** carbonate — клик / навигация */
-    fun playClick() = play(carbonate, 0.7f, 18L)
-
-    /** iota — APK установлен */
-    fun playInstall() = play(iota, 1f, 80L)
-
-    /** iota — уведомление */
-    fun playNotification() = play(iota, 0.8f, 30L)
-
-    /** gradient — ошибка */
-    fun playError() = play(gradient, 1f, -1L)  // -1 = error pattern
-
-    /** discovery — пасхалка */
-    fun playSecret() = play(discovery, 1f, 60L)
-
-    // Алиас для обратной совместимости
-    fun playSuccess() = playInstall()
-
-    // ── Вибрация ──────────────────────────────────────────────────
+    fun playClick()        = play(carbonate, 0.7f, 18L)
+    fun playInstall()      = play(iota,      1f,   80L)
+    fun playNotification() = play(iota,      0.8f, 30L)
+    fun playError()        = play(gradient,  1f,   -1L)
+    fun playSecret()       = play(discovery, 1f,   60L)
+    fun playSuccess()      = playInstall()
 
     private fun doVibrate(ms: Long) {
         if (!he()) return
