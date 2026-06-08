@@ -118,4 +118,8 @@
     <string name="cat_travel">Travel</string>
     <string name="cat_productivity">Productivity</string>
     <string name="cat_other">Other</string>
+    <string name="theme_israel">Israel</string>
+    <string name="easter_egg_israel_title">SECRET EASTER EGG! 🇮🇱</string>
+    <string name="easter_egg_israel_desc">Sotark Founder</string>
+    <string name="israel_theme_unlocked">Israel theme unlocked!</string>
 </resources>
