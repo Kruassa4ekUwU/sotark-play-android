@@ -2,7 +2,6 @@ package com.sotark.play
 
 import android.Manifest
 import android.content.Context
-import android.content.ContextWrapper
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -25,7 +24,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.sotark.play.data.AppLanguage
-import com.sotark.play.data.AppSettings
 import com.sotark.play.data.SoundManager
 import com.sotark.play.ui.Screen
 import com.sotark.play.ui.screens.*
@@ -39,12 +37,10 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var soundManager: SoundManager
-    @Inject lateinit var appSettings: AppSettings
 
     override fun attachBaseContext(base: Context) {
-        // Применяем сохранённый язык ДО инфляции layout — без мерцания
-        val prefs = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
-        val code  = prefs.getString("language", "en") ?: "en"
+        val prefs  = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
+        val code   = prefs.getString("language", "en") ?: "en"
         val locale = Locale(code)
         Locale.setDefault(locale)
         val config = base.resources.configuration.also { it.setLocale(locale) }
@@ -54,24 +50,24 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
         setContent {
             val settingsVm: SettingsViewModel = hiltViewModel()
             val darkTheme      by settingsVm.darkTheme.collectAsState()
             val ukrainianTheme by settingsVm.ukrainianTheme.collectAsState()
+            val secretTheme    by settingsVm.secretTheme.collectAsState()
             val language       by settingsVm.language.collectAsState()
 
-            // При смене языка — recreate() без артефактов
-            // Используем снапшот предыдущего языка чтобы не срабатывало при первом запуске
             var prevLang by remember { mutableStateOf<AppLanguage?>(null) }
             LaunchedEffect(language) {
-                if (prevLang != null && prevLang != language) {
-                    recreate()
-                }
+                if (prevLang != null && prevLang != language) recreate()
                 prevLang = language
             }
 
-            SotarkPlayTheme(darkTheme = darkTheme, ukrainianTheme = ukrainianTheme) {
+            SotarkPlayTheme(
+                darkTheme      = darkTheme,
+                ukrainianTheme = ukrainianTheme,
+                secretTheme    = secretTheme
+            ) {
                 SotarkPlayApp(soundManager = soundManager)
             }
         }
@@ -88,21 +84,17 @@ fun SotarkPlayApp(soundManager: SoundManager) {
         Screen.Home.route, Screen.Search.route,
         Screen.Publish.route, Screen.Settings.route
     )
-    val showBottom = currentRoute in bottomRoutes
 
-    // Запрос разрешения уведомлений при первом запуске
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val permLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) {}
-        LaunchedEffect(Unit) {
-            permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        LaunchedEffect(Unit) { permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
     }
 
     Scaffold(
         bottomBar = {
-            if (showBottom) {
+            if (currentRoute in bottomRoutes) {
                 NavigationBar {
                     listOf(
                         Triple(Screen.Home.route,     Icons.Filled.Home,     R.string.home),
@@ -130,11 +122,8 @@ fun SotarkPlayApp(soundManager: SoundManager) {
             }
         }
     ) { padding ->
-        NavHost(
-            navController    = navController,
-            startDestination = Screen.Home.route,
-            modifier         = Modifier.padding(padding)
-        ) {
+        NavHost(navController = navController, startDestination = Screen.Home.route,
+            modifier = Modifier.padding(padding)) {
             composable(Screen.Home.route) {
                 HomeScreen(onAppClick = {
                     soundManager.playClick()
@@ -173,15 +162,12 @@ fun SotarkPlayApp(soundManager: SoundManager) {
             composable(Screen.DevTest.route) {
                 DevTestScreen(onBack = { soundManager.playClick(); navController.popBackStack() })
             }
-            composable(
-                Screen.AppDetail.route,
+            composable(Screen.AppDetail.route,
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
             ) { back ->
                 val appId = back.arguments?.getInt("appId") ?: return@composable
-                AppDetailScreen(
-                    appId  = appId,
-                    onBack = { soundManager.playClick(); navController.popBackStack() }
-                )
+                AppDetailScreen(appId = appId,
+                    onBack = { soundManager.playClick(); navController.popBackStack() })
             }
         }
     }
