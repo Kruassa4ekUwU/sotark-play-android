@@ -10,10 +10,18 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 enum class AppLanguage(val code: String, val label: String) {
-    ENGLISH("en", "English"),
-    RUSSIAN("ru", "Русский"),
-    UKRAINIAN("uk", "Українська"),
-    HEBREW("he", "עברית")
+    ENGLISH("en",  "English"),
+    RUSSIAN("ru",  "Русский"),
+    UKRAINIAN("uk","Українська"),
+    HEBREW("he",   "עברית")
+}
+
+enum class SecretTheme(val id: String) {
+    NONE("none"),
+    MATTE_METAL("matte_metal"),
+    NEON("neon"),
+    ONYX("onyx"),
+    SUNSET("sunset")
 }
 
 @Singleton
@@ -50,8 +58,34 @@ class AppSettings @Inject constructor(
     )
     val language: StateFlow<AppLanguage> = _language.asStateFlow()
 
-    fun setDarkTheme(v: Boolean) { prefs.edit().putBoolean("dark_theme", v).apply(); _darkTheme.value = v }
-    fun setSoundEnabled(v: Boolean) { prefs.edit().putBoolean("sound_enabled", v).apply(); _soundEnabled.value = v }
+    private val _secretTheme = MutableStateFlow(
+        SecretTheme.values().find { it.id == prefs.getString("secret_theme", "none") }
+            ?: SecretTheme.NONE
+    )
+    val secretTheme: StateFlow<SecretTheme> = _secretTheme.asStateFlow()
+
+    // Счётчик переключений темной/светлой темы — для разблокировки секретного меню
+    private val _darkThemeToggleCount = MutableStateFlow(
+        prefs.getInt("dark_theme_toggle_count", 0)
+    )
+    val darkThemeToggleCount: StateFlow<Int> = _darkThemeToggleCount.asStateFlow()
+
+    fun setDarkTheme(v: Boolean) {
+        val newCount = _darkThemeToggleCount.value + 1
+        prefs.edit()
+            .putBoolean("dark_theme", v)
+            .putInt("dark_theme_toggle_count", newCount)
+            .apply()
+        _darkTheme.value = v
+        _darkThemeToggleCount.value = newCount
+    }
+
+    fun resetDarkThemeToggleCount() {
+        prefs.edit().putInt("dark_theme_toggle_count", 0).apply()
+        _darkThemeToggleCount.value = 0
+    }
+
+    fun setSoundEnabled(v: Boolean)  { prefs.edit().putBoolean("sound_enabled", v).apply();  _soundEnabled.value = v }
     fun setHapticEnabled(v: Boolean) { prefs.edit().putBoolean("haptic_enabled", v).apply(); _hapticEnabled.value = v }
 
     fun unlockEasterEgg() {
@@ -59,12 +93,22 @@ class AppSettings @Inject constructor(
         _easterEggUnlocked.value = true
         _ukrainianTheme.value    = true
     }
-    fun markEasterEggShown() { prefs.edit().putBoolean("easter_egg_shown", true).apply(); _easterEggShown.value = true }
-
-    fun unlockSecretMenu() { prefs.edit().putBoolean("secret_menu", true).apply(); _secretMenuUnlocked.value = true }
-
-    fun setUkrainianTheme(v: Boolean) { prefs.edit().putBoolean("ukrainian_theme", v).apply(); _ukrainianTheme.value = v }
-
+    fun markEasterEggShown() {
+        prefs.edit().putBoolean("easter_egg_shown", true).apply()
+        _easterEggShown.value = true
+    }
+    fun unlockSecretMenu() {
+        prefs.edit().putBoolean("secret_menu", true).apply()
+        _secretMenuUnlocked.value = true
+    }
+    fun setUkrainianTheme(v: Boolean) {
+        prefs.edit().putBoolean("ukrainian_theme", v).apply()
+        _ukrainianTheme.value = v
+    }
+    fun setSecretTheme(t: SecretTheme) {
+        prefs.edit().putString("secret_theme", t.id).apply()
+        _secretTheme.value = t
+    }
     fun setLanguage(lang: AppLanguage) {
         prefs.edit().putString("language", lang.code).apply()
         _language.value = lang
