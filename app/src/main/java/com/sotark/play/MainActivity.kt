@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
-import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,38 +24,27 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.sotark.play.data.AppLanguage
-import com.sotark.play.data.SoundManager
 import com.sotark.play.ui.Screen
 import com.sotark.play.ui.screens.*
 import com.sotark.play.ui.theme.SotarkPlayTheme
 import com.sotark.play.viewmodel.SettingsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
-    @Inject lateinit var soundManager: SoundManager
-
     override fun attachBaseContext(base: Context) {
-        val prefs = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
-        val code  = prefs.getString("language", "en") ?: "en"
-
-        // Для иврита Android исторически использует "iw", но BCP-47 тег — "he"
-        // Locale.Builder корректно обрабатывает оба варианта
+        val prefs  = base.getSharedPreferences("sotark_prefs", Context.MODE_PRIVATE)
+        val code   = prefs.getString("language", "en") ?: "en"
         val locale = when (code) {
             "iw", "he" -> Locale.Builder().setLanguage("iw").build()
             else        -> Locale(code)
         }
-
         Locale.setDefault(locale)
         val config = base.resources.configuration.also { cfg ->
             cfg.setLocale(locale)
-            // RTL для иврита
-            if (code == "iw" || code == "he") {
-                cfg.setLayoutDirection(locale)
-            }
+            if (code == "iw" || code == "he") cfg.setLayoutDirection(locale)
         }
         super.attachBaseContext(base.createConfigurationContext(config))
     }
@@ -82,14 +70,14 @@ class MainActivity : AppCompatActivity() {
                 ukrainianTheme = ukrainianTheme,
                 secretTheme    = secretTheme
             ) {
-                SotarkPlayApp(soundManager = soundManager)
+                SotarkPlayApp()
             }
         }
     }
 }
 
 @Composable
-fun SotarkPlayApp(soundManager: SoundManager) {
+fun SotarkPlayApp() {
     val navController = rememberNavController()
     val navBackStack  by navController.currentBackStackEntryAsState()
     val currentRoute  = navBackStack?.destination?.route
@@ -120,7 +108,6 @@ fun SotarkPlayApp(soundManager: SoundManager) {
                             selected = currentRoute == route,
                             onClick  = {
                                 if (currentRoute != route) {
-                                    soundManager.playClick()
                                     navController.navigate(route) {
                                         popUpTo(Screen.Home.route) { saveState = true }
                                         launchSingleTop = true
@@ -139,49 +126,39 @@ fun SotarkPlayApp(soundManager: SoundManager) {
         NavHost(navController = navController, startDestination = Screen.Home.route,
             modifier = Modifier.padding(padding)) {
             composable(Screen.Home.route) {
-                HomeScreen(onAppClick = {
-                    soundManager.playClick()
-                    navController.navigate(Screen.AppDetail.createRoute(it))
-                })
+                HomeScreen(onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) })
             }
             composable(Screen.Search.route) {
-                SearchScreen(onAppClick = {
-                    soundManager.playClick()
-                    navController.navigate(Screen.AppDetail.createRoute(it))
-                })
+                SearchScreen(onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) })
             }
             composable(Screen.Publish.route) {
                 PublishScreen(
-                    onBack    = { soundManager.playClick(); navController.popBackStack() },
-                    onSuccess = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
-                    }
+                    onBack    = { navController.popBackStack() },
+                    onSuccess = { navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true } } }
                 )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onBack         = { soundManager.playClick(); navController.popBackStack() },
-                    onHistoryClick = { soundManager.playClick(); navController.navigate(Screen.History.route) },
-                    onDevTestClick = { soundManager.playClick(); navController.navigate(Screen.DevTest.route) }
+                    onBack         = { navController.popBackStack() },
+                    onHistoryClick = { navController.navigate(Screen.History.route) },
+                    onDevTestClick = { navController.navigate(Screen.DevTest.route) }
                 )
             }
             composable(Screen.History.route) {
                 HistoryScreen(
-                    onBack     = { soundManager.playClick(); navController.popBackStack() },
-                    onAppClick = { soundManager.playClick(); navController.navigate(Screen.AppDetail.createRoute(it)) }
+                    onBack     = { navController.popBackStack() },
+                    onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) }
                 )
             }
             composable(Screen.DevTest.route) {
-                DevTestScreen(onBack = { soundManager.playClick(); navController.popBackStack() })
+                DevTestScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.AppDetail.route,
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
             ) { back ->
                 val appId = back.arguments?.getInt("appId") ?: return@composable
-                AppDetailScreen(appId = appId,
-                    onBack = { soundManager.playClick(); navController.popBackStack() })
+                AppDetailScreen(appId = appId, onBack = { navController.popBackStack() })
             }
         }
     }
