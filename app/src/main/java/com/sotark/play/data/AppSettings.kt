@@ -13,7 +13,7 @@ enum class AppLanguage(val code: String, val label: String) {
     ENGLISH("en",  "English"),
     RUSSIAN("ru",  "Русский"),
     UKRAINIAN("uk","Українська"),
-    HEBREW("he",   "עברית")
+    HEBREW("iw",   "עברית")
 }
 
 enum class SecretTheme(val id: String) {
