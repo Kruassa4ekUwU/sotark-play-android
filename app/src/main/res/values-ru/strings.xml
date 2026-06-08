@@ -118,4 +118,8 @@
     <string name="cat_travel">Путешествия</string>
     <string name="cat_productivity">Производительность</string>
     <string name="cat_other">Другое</string>
+    <string name="theme_israel">Израиль</string>
+    <string name="easter_egg_israel_title">СЕКРЕТНАЯ ПАСХАЛКА! 🇮🇱</string>
+    <string name="easter_egg_israel_desc">Основатель Sotark</string>
+    <string name="israel_theme_unlocked">Израильская тема разблокирована!</string>
 </resources>
