@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.sotark.play.BuildConfig
 import com.sotark.play.R
 import com.sotark.play.data.AppLanguage
 import com.sotark.play.data.SecretTheme
@@ -58,7 +57,6 @@ private data class ThemeEntry(
 fun SettingsScreen(
     onBack: () -> Unit,
     onHistoryClick: () -> Unit,
-    onDevTestClick: () -> Unit = {},
     viewModel: SettingsViewModel  = hiltViewModel(),
     downloadVm: DownloadViewModel = hiltViewModel()
 ) {
@@ -105,12 +103,6 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.settings_title))
-                        if (BuildConfig.IS_BETA) {
-                            Surface(shape = MaterialTheme.shapes.extraSmall, color = Color(0xFFFFA000)) {
-                                Text("BETA", style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White, fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp))
-                            }
                         }
                     }
                 },
@@ -161,29 +153,6 @@ fun SettingsScreen(
                 onClick = onHistoryClick) {
                 Icon(Icons.Filled.ChevronRight, null, tint = subTextColor)
             }
-
-            // ── Dev Test (бета) ───────────────────────────────────────
-            if (BuildConfig.IS_BETA) {
-                Card(shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
-                    onClick = onDevTestClick) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Filled.BugReport, null, tint = Color(0xFFFFA000))
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.dev_test_panel), color = Color.White,
-                                fontWeight = FontWeight.Medium)
-                            Text(stringResource(R.string.dev_test_subtitle),
-                                style = MaterialTheme.typography.bodySmall, color = Color(0xFFB0B0CC))
-                        }
-                        Surface(shape = MaterialTheme.shapes.extraSmall, color = Color(0xFFFFA000)) {
-                            Text("BETA", style = MaterialTheme.typography.labelSmall,
-                                color = Color.White, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp))
-                        }
-                    }
-                }
             }
 
             Spacer(Modifier.height(2.dp))
