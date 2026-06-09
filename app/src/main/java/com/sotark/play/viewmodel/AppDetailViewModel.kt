@@ -15,8 +15,7 @@ data class AppDetailUiState(
     val app: App?             = null,
     val reviews: List<Review> = emptyList(),
     val isLoading: Boolean    = false,
-    val error: String?        = null,
-    val reviewSent: Boolean   = false
+    val error: String?        = null
 )
 
 @HiltViewModel
@@ -46,12 +45,8 @@ class AppDetailViewModel @Inject constructor(
     fun postReview(appId: Int, author: String, rating: Int, text: String) {
         viewModelScope.launch {
             repo.postReview(appId, author, rating, text)
-            _state.update { it.copy(reviewSent = true) }
-            // reload reviews
             val reviews = repo.getReviews(appId)
             if (reviews is Result.Success) _state.update { it.copy(reviews = reviews.data) }
         }
     }
-
-    fun resetReviewSent() { _state.update { it.copy(reviewSent = false) } }
 }

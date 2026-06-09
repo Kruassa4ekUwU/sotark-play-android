@@ -1,5 +1,8 @@
 package com.sotark.play.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,46 +21,62 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sotark.play.R
+import com.sotark.play.data.model.AgeRating
 import com.sotark.play.data.model.Review
 import com.sotark.play.ui.components.*
-import com.sotark.play.ui.theme.GreenPrimary
 import com.sotark.play.viewmodel.AppDetailViewModel
 import com.sotark.play.viewmodel.DownloadState
 import com.sotark.play.viewmodel.DownloadViewModel
+import com.sotark.play.viewmodel.HistoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(
     appId: Int,
     onBack: () -> Unit,
-    detailViewModel: AppDetailViewModel = hiltViewModel(),
-    downloadViewModel: DownloadViewModel = hiltViewModel()
+    detailVm:   AppDetailViewModel = hiltViewModel(),
+    downloadVm: DownloadViewModel  = hiltViewModel(),
+    historyVm:  HistoryViewModel   = hiltViewModel()
 ) {
-    val state   by detailViewModel.state.collectAsState()
-    val dlState by downloadViewModel.state.collectAsState()
+    val state   by detailVm.state.collectAsState()
+    val dlState by downloadVm.state.collectAsState()
 
-    LaunchedEffect(appId) { detailViewModel.load(appId) }
+    // Ровно один LaunchedEffect — загружаем при первом входе
+    LaunchedEffect(appId) { detailVm.load(appId) }
 
-    // Авто-установка когда файл скачан
+    // Установка APK когда файл готов
     LaunchedEffect(dlState) {
         if (dlState is DownloadState.ReadyToInstall) {
-            downloadViewModel.installApk((dlState as DownloadState.ReadyToInstall).file)
+            historyVm.load()
+            downloadVm.installApk((dlState as DownloadState.ReadyToInstall).file)
         }
     }
 
-    // Проверяем установлено ли приложение
-    val pkg       = state.app?.`package` ?: ""
-    val installed = remember(pkg) {
-        if (pkg.isNotEmpty()) downloadViewModel.isInstalled(pkg) else false
-    }
-    val canInstall = remember { downloadViewModel.canInstallUnknownSources() }
+    val pkg        = state.app?.`package` ?: ""
+    val installed  = if (pkg.isNotEmpty()) downloadVm.isInstalled(pkg) else false
+    val canInstall = downloadVm.canInstallUnknownSources()
 
-    var showReviewDialog       by remember { mutableStateOf(false) }
-    var showPermissionDialog   by remember { mutableStateOf(false) }
+    var fullscreenImg        by remember { mutableStateOf<String?>(null) }
+    var showReviewDialog     by remember { mutableStateOf(false) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    var showAgeWarning       by remember { mutableStateOf(false) }
+    var ageWarningShown      by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.app) {
+        val app = state.app ?: return@LaunchedEffect
+        if (!ageWarningShown && app.getAgeRatingEnum() == AgeRating.EIGHTEEN) {
+            showAgeWarning = true
+            ageWarningShown = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -64,285 +84,369 @@ fun AppDetailScreen(
                 title = { Text(state.app?.name ?: "") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
+                    }
+                },
+                actions = {
+                    // Кнопка ручного обновления вместо swipe (нет двойного)
+                    if (!state.isLoading && state.app != null) {
+                        IconButton(onClick = { detailVm.load(appId) }) {
+                            Icon(Icons.Filled.CheckCircle, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             )
         }
     ) { padding ->
-        when {
-            state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            state.error != null -> Box(
-                Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Ошибка загрузки")
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { detailViewModel.load(appId) }) { Text("Повторить") }
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            when {
+                // Загрузка первого открытия
+                state.isLoading && state.app == null -> {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }
-            }
-            state.app != null -> {
-                val app = state.app!!
-                LazyColumn(
-                    Modifier.padding(padding),
-                    contentPadding = PaddingValues(bottom = 32.dp)
-                ) {
+                // Ошибка
+                state.error != null && state.app == null -> {
+                    Column(
+                        Modifier.align(Alignment.Center).padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(stringResource(R.string.error_loading),
+                            style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { detailVm.load(appId) }) {
+                            Text(stringResource(R.string.retry))
+                        }
+                    }
+                }
+                // Контент
+                state.app != null -> {
+                    val app = state.app!!
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
 
-                    // ── Header ───────────────────────────────────────────
-                    item {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AppIcon(url = app.iconUrl, size = 80)
-                            Spacer(Modifier.width(16.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(app.name, style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold)
-                                Text(app.developer,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodyMedium)
-                                Text(app.category,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall)
-                                // Бейдж "Установлено"
-                                if (installed) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.CheckCircle, null,
-                                            tint = GreenPrimary,
-                                            modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Установлено",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = GreenPrimary,
-                                            fontWeight = FontWeight.Medium)
+                        // ── Шапка ─────────────────────────────────────────
+                        item {
+                            Row(Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                AppIcon(url = app.iconUrl, size = 80)
+                                Spacer(Modifier.width(16.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(app.name,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold)
+                                    Text(app.developer,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodyMedium)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text(app.category,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall)
+                                        AgeRatingBadge(app.getAgeRatingEnum())
+                                    }
+                                    if (installed) {
+                                        Spacer(Modifier.height(4.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Filled.CheckCircle, null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(stringResource(R.string.installed),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Medium)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // ── Stats ────────────────────────────────────────────
-                    item {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            StatItem("${app.rating}", "Рейтинг")
-                            VerticalDivider(Modifier.height(40.dp))
-                            StatItem("${app.downloads}", "Скачиваний")
-                            VerticalDivider(Modifier.height(40.dp))
-                            StatItem("${app.sizeMb} МБ", "Размер")
-                            VerticalDivider(Modifier.height(40.dp))
-                            StatItem("v${app.version}", "Версия")
+                        // ── Статистика ────────────────────────────────────
+                        item {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly) {
+                                StatItem("${app.rating}", stringResource(R.string.rating))
+                                VerticalDivider(Modifier.height(40.dp))
+                                StatItem("${app.downloads}", stringResource(R.string.downloads))
+                                VerticalDivider(Modifier.height(40.dp))
+                                StatItem("${app.sizeMb} MB", stringResource(R.string.size))
+                                VerticalDivider(Modifier.height(40.dp))
+                                StatItem("v${app.version}", stringResource(R.string.version))
+                            }
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
                         }
-                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                    }
 
-                    // ── Download / Install button ─────────────────────────
-                    item {
-                        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                            when (val dl = dlState) {
-                                is DownloadState.Idle -> {
-                                    Button(
+                        // ── Кнопка скачать ────────────────────────────────
+                        item {
+                            Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                when (val dl = dlState) {
+                                    is DownloadState.Idle -> Button(
                                         onClick = {
-                                            if (!canInstall) {
-                                                showPermissionDialog = true
-                                            } else {
-                                                app.apkUrl?.let {
-                                                    downloadViewModel.download(app.name, it)
-                                                }
+                                            if (!canInstall) showPermissionDialog = true
+                                            else app.apkUrl?.let {
+                                                downloadVm.download(app.name, it)
                                             }
                                         },
                                         enabled  = app.apkUrl != null,
                                         shape    = RoundedCornerShape(10.dp),
-                                        colors   = ButtonDefaults.buttonColors(
-                                            containerColor = if (installed) Color(0xFF1565C0)
-                                                             else GreenPrimary
-                                        ),
                                         modifier = Modifier.fillMaxWidth().height(48.dp)
                                     ) {
-                                        Text(
-                                            when {
-                                                app.apkUrl == null -> "APK недоступен"
-                                                installed          -> "⬇  Обновить"
-                                                else               -> "⬇  Скачать и установить"
-                                            },
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Text(when {
+                                            app.apkUrl == null -> stringResource(R.string.no_apk)
+                                            installed          -> stringResource(R.string.update)
+                                            else               -> stringResource(R.string.install)
+                                        }, fontWeight = FontWeight.Bold)
                                     }
-                                }
-                                is DownloadState.Downloading -> {
-                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Row(
-                                            Modifier.fillMaxWidth(),
+                                    is DownloadState.Downloading -> Column(
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Row(Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text("Скачивается…", fontWeight = FontWeight.Medium)
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Text(stringResource(R.string.downloading),
+                                                fontWeight = FontWeight.Medium)
                                             Text("${dl.progress}%",
-                                                color = GreenPrimary, fontWeight = FontWeight.Bold)
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold)
                                         }
                                         LinearProgressIndicator(
                                             progress = { dl.progress / 100f },
                                             modifier = Modifier.fillMaxWidth().height(8.dp)
-                                                .clip(RoundedCornerShape(4.dp)),
-                                            color = GreenPrimary
+                                                .clip(RoundedCornerShape(4.dp))
                                         )
                                         TextButton(
-                                            onClick  = { downloadViewModel.reset() },
+                                            onClick  = { downloadVm.reset() },
                                             modifier = Modifier.align(Alignment.End)
-                                        ) { Text("Отмена") }
+                                        ) { Text(stringResource(R.string.cancel)) }
                                     }
-                                }
-                                is DownloadState.ReadyToInstall -> {
-                                    Button(
-                                        onClick  = { downloadViewModel.installApk(dl.file) },
+                                    is DownloadState.ReadyToInstall -> Button(
+                                        onClick  = { downloadVm.installApk(dl.file) },
                                         shape    = RoundedCornerShape(10.dp),
-                                        colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
                                         modifier = Modifier.fillMaxWidth().height(48.dp)
-                                    ) { Text("✓  Установить", fontWeight = FontWeight.Bold) }
-                                }
-                                is DownloadState.Error -> {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("Ошибка: ${dl.message}",
+                                    ) { Text(stringResource(R.string.install_now),
+                                        fontWeight = FontWeight.Bold) }
+                                    is DownloadState.Error -> Column(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text("${stringResource(R.string.error_loading)}: ${dl.message}",
                                             color = MaterialTheme.colorScheme.error)
-                                        Button(
-                                            onClick = {
-                                                downloadViewModel.reset()
-                                                app.apkUrl?.let {
-                                                    downloadViewModel.download(app.name, it)
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("Повторить") }
+                                        Button(onClick = {
+                                            downloadVm.reset()
+                                            app.apkUrl?.let { downloadVm.download(app.name, it) }
+                                        }, modifier = Modifier.fillMaxWidth()) {
+                                            Text(stringResource(R.string.retry))
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // ── Screenshots ──────────────────────────────────────
-                    if (app.screenshots.isNotEmpty()) {
+                        // ── Галерея скриншотов ─────────────────────────────
+                        if (app.screenshots.isNotEmpty()) {
+                            item {
+                                Spacer(Modifier.height(8.dp))
+                                SectionHeader(stringResource(R.string.screenshots))
+                                Row(
+                                    Modifier
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    app.screenshots.forEachIndexed { idx, url ->
+                                        Box(
+                                            Modifier
+                                                .height(200.dp).width(110.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .clickable { fullscreenImg = url }
+                                        ) {
+                                            AsyncImage(
+                                                model = url,
+                                                contentDescription = "${stringResource(R.string.screenshots)} ${idx+1}",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+
+                        // ── Описание ──────────────────────────────────────
+                        if (app.description.isNotEmpty()) {
+                            item {
+                                SectionHeader(stringResource(R.string.description))
+                                Text(app.description,
+                                    style    = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            }
+                        }
+
+                        // ── Отзывы ────────────────────────────────────────
                         item {
-                            SectionHeader("Скриншоты")
-                            Row(
-                                Modifier.horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                app.screenshots.forEach { url ->
-                                    AsyncImage(
-                                        model = url, contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.height(180.dp).width(100.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                    )
+                            Spacer(Modifier.height(8.dp))
+                            Row(Modifier.fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text("${stringResource(R.string.reviews)} (${state.reviews.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold)
+                                TextButton(onClick = { showReviewDialog = true }) {
+                                    Text(stringResource(R.string.write_review))
                                 }
                             }
                         }
-                    }
-
-                    // ── Description ──────────────────────────────────────
-                    if (app.description.isNotEmpty()) {
-                        item {
-                            SectionHeader("Описание")
-                            Text(app.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(horizontal = 16.dp))
-                        }
-                    }
-
-                    // ── Reviews ──────────────────────────────────────────
-                    item {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Отзывы (${state.reviews.size})",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold)
-                            TextButton(onClick = { showReviewDialog = true }) { Text("Написать") }
-                        }
-                    }
-
-                    if (state.reviews.isEmpty()) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center) {
-                                Text("Отзывов пока нет",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (state.reviews.isEmpty()) {
+                            item {
+                                Box(Modifier.fillMaxWidth().padding(24.dp),
+                                    contentAlignment = Alignment.Center) {
+                                    Text(stringResource(R.string.no_reviews),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        } else {
+                            items(state.reviews, key = { it.id }) { review ->
+                                ReviewItem(review)
+                                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                             }
                         }
-                    } else {
-                        items(state.reviews) { review ->
-                            ReviewItem(review)
-                            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                        }
                     }
+                }
+            }
+
+            // Индикатор фонового обновления (не блокирует UI)
+            if (state.isLoading && state.app != null) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+            }
+        }
+    }
+
+    // ── Fullscreen скриншот ───────────────────────────────────────────────────
+    fullscreenImg?.let { imgUrl ->
+        Dialog(onDismissRequest = { fullscreenImg = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.96f)),
+                contentAlignment = Alignment.Center) {
+                AsyncImage(model = imgUrl, contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp))
+                IconButton(onClick = { fullscreenImg = null },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+                    Icon(Icons.Filled.Close, null, tint = Color.White,
+                        modifier = Modifier.size(32.dp))
                 }
             }
         }
     }
 
-    // ── Диалог: нет разрешения на установку ──────────────────────────────────
-    if (showPermissionDialog) {
+    // ── 18+ предупреждение ────────────────────────────────────────────────────
+    if (showAgeWarning) {
         AlertDialog(
-            onDismissRequest = { showPermissionDialog = false },
-            title   = { Text("Нужно разрешение") },
-            text    = { Text("Чтобы устанавливать приложения, разреши Sotark Play устанавливать из неизвестных источников в настройках.") },
+            onDismissRequest = { showAgeWarning = false; onBack() },
+            title = { Text("18+") },
+            text  = { Text("Это приложение содержит контент только для взрослых. Вам есть 18 лет?") },
             confirmButton = {
-                Button(onClick = {
-                    showPermissionDialog = false
-                    downloadViewModel.openInstallPermissionSettings()
-                }) { Text("Открыть настройки") }
+                Button(onClick = { showAgeWarning = false }) { Text("Да, мне 18+") }
             },
             dismissButton = {
-                TextButton(onClick = { showPermissionDialog = false }) { Text("Отмена") }
+                TextButton(onClick = { showAgeWarning = false; onBack() }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
 
-    // ── Review dialog ─────────────────────────────────────────────────────────
+    // ── Разрешение установки ──────────────────────────────────────────────────
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title = { Text(stringResource(R.string.permission_needed)) },
+            text  = { Text(stringResource(R.string.permission_text)) },
+            confirmButton = {
+                Button(onClick = {
+                    showPermissionDialog = false
+                    downloadVm.openInstallPermissionSettings()
+                }) { Text(stringResource(R.string.open_settings)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // ── Диалог отзыва ─────────────────────────────────────────────────────────
     if (showReviewDialog) {
         var author by remember { mutableStateOf("") }
         var rating by remember { mutableIntStateOf(5) }
         var text   by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showReviewDialog = false },
-            title   = { Text("Написать отзыв") },
-            text    = {
+            title = { Text(stringResource(R.string.write_review_title)) },
+            text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = author, onValueChange = { author = it },
-                        label = { Text("Ваше имя") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = author, onValueChange = { author = it },
+                        label = { Text(stringResource(R.string.review_name_hint)) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         repeat(5) { i ->
                             IconButton(onClick = { rating = i + 1 },
-                                modifier = Modifier.size(32.dp)) {
+                                modifier = Modifier.size(40.dp)) {
                                 Icon(Icons.Filled.Star, null,
-                                    tint = if (i < rating) Color(0xFFFFC107) else Color.Gray)
+                                    tint = if (i < rating) Color(0xFFFFC107)
+                                           else MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.size(30.dp))
                             }
                         }
                     }
-                    OutlinedTextField(value = text, onValueChange = { text = it },
-                        label = { Text("Комментарий") }, minLines = 3,
-                        modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = text, onValueChange = { text = it },
+                        label = { Text(stringResource(R.string.what_to_tell)) },
+                        minLines = 3, modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (author.isNotBlank()) {
-                        detailViewModel.postReview(appId, author, rating, text)
-                        showReviewDialog = false
-                    }
-                }, enabled = author.isNotBlank()) { Text("Отправить") }
+                Button(
+                    onClick  = {
+                        if (author.isNotBlank()) {
+                            detailVm.postReview(appId, author, rating, text)
+                            showReviewDialog = false
+                        }
+                    },
+                    enabled = author.isNotBlank()
+                ) { Text(stringResource(R.string.send)) }
             },
             dismissButton = {
-                TextButton(onClick = { showReviewDialog = false }) { Text("Отмена") }
+                TextButton(onClick = { showReviewDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
         )
+    }
+}
+
+@Composable
+fun AgeRatingBadge(rating: AgeRating) {
+    val color = when (rating) {
+        AgeRating.ALL      -> Color(0xFF4CAF50)
+        AgeRating.SIX      -> Color(0xFF8BC34A)
+        AgeRating.TWELVE   -> Color(0xFFFFC107)
+        AgeRating.SIXTEEN  -> Color(0xFFFF9800)
+        AgeRating.EIGHTEEN -> Color(0xFFF44336)
+    }
+    Surface(shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(1.dp, color), color = color.copy(alpha = 0.15f)) {
+        Text(rating.label, color = color,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
     }
 }
 
@@ -360,7 +464,7 @@ private fun ReviewItem(review: Review) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
+            verticalAlignment     = Alignment.CenterVertically) {
             Text(review.author, fontWeight = FontWeight.SemiBold)
             RatingStars(rating = review.rating.toFloat())
         }

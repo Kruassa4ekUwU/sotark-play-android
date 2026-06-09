@@ -12,11 +12,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
-    val topApps: List<App>      = emptyList(),
-    val newApps: List<App>      = emptyList(),
+    val topApps: List<App>         = emptyList(),
+    val newApps: List<App>         = emptyList(),
     val categories: List<Category> = emptyList(),
-    val isLoading: Boolean      = false,
-    val error: String?          = null
+    val isLoading: Boolean         = false,
+    val error: String?             = null
 )
 
 @HiltViewModel
@@ -32,17 +32,17 @@ class HomeViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val top  = repo.getTop()
+            val top    = repo.getTop()
             val newest = repo.getApps(sort = "newest")
-            val cats = repo.getCategories()
+            val cats   = repo.getCategories()
             _state.update { s ->
                 s.copy(
                     isLoading  = false,
-                    topApps    = if (top is Result.Success) top.data else emptyList(),
-                    newApps    = if (newest is Result.Success) newest.data else emptyList(),
-                    categories = if (cats is Result.Success) cats.data else emptyList(),
+                    topApps    = if (top    is Result.Success) top.data    else s.topApps,
+                    newApps    = if (newest is Result.Success) newest.data else s.newApps,
+                    categories = if (cats   is Result.Success) cats.data   else s.categories,
                     error      = listOfNotNull(
-                        (top as? Result.Error)?.message,
+                        (top    as? Result.Error)?.message,
                         (newest as? Result.Error)?.message
                     ).firstOrNull()
                 )
