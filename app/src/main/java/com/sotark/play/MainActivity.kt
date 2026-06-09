@@ -123,26 +123,35 @@ fun SotarkPlayApp() {
             }
         }
     ) { padding ->
-        NavHost(navController = navController, startDestination = Screen.Home.route,
-            modifier = Modifier.padding(padding)) {
+        NavHost(
+            navController    = navController,
+            startDestination = Screen.Home.route,
+            modifier         = Modifier.padding(padding)
+        ) {
             composable(Screen.Home.route) {
-                HomeScreen(onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) })
+                HomeScreen(onAppClick = {
+                    navController.navigate(Screen.AppDetail.createRoute(it))
+                })
             }
             composable(Screen.Search.route) {
-                SearchScreen(onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) })
+                SearchScreen(onAppClick = {
+                    navController.navigate(Screen.AppDetail.createRoute(it))
+                })
             }
             composable(Screen.Publish.route) {
                 PublishScreen(
                     onBack    = { navController.popBackStack() },
-                    onSuccess = { navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true } } }
+                    onSuccess = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                    }
                 )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onBack         = { navController.popBackStack() },
-                    onHistoryClick = { navController.navigate(Screen.History.route) },
-                    onDevTestClick = { navController.navigate(Screen.DevTest.route) }
+                    onHistoryClick = { navController.navigate(Screen.History.route) }
                 )
             }
             composable(Screen.History.route) {
@@ -151,14 +160,15 @@ fun SotarkPlayApp() {
                     onAppClick = { navController.navigate(Screen.AppDetail.createRoute(it)) }
                 )
             }
-            composable(Screen.DevTest.route) {
-                DevTestScreen(onBack = { navController.popBackStack() })
-            }
-            composable(Screen.AppDetail.route,
+            composable(
+                Screen.AppDetail.route,
                 arguments = listOf(navArgument("appId") { type = NavType.IntType })
             ) { back ->
                 val appId = back.arguments?.getInt("appId") ?: return@composable
-                AppDetailScreen(appId = appId, onBack = { navController.popBackStack() })
+                AppDetailScreen(
+                    appId  = appId,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
