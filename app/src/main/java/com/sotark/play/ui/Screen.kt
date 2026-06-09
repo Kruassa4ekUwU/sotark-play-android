@@ -6,7 +6,6 @@ sealed class Screen(val route: String) {
     object Publish   : Screen("publish")
     object Settings  : Screen("settings")
     object History   : Screen("history")
-    object DevTest   : Screen("dev_test")   // только бета
     object AppDetail : Screen("app_detail/{appId}") {
         fun createRoute(id: Int) = "app_detail/$id"
     }
