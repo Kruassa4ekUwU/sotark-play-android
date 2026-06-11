@@ -16,7 +16,7 @@ android {
         targetSdk     = 35
         versionCode   = 3
         versionName   = "2.0.0"
-        buildConfigField("String", "BASE_URL",
+        buildConfigField("String",  "BASE_URL",
             "\"https://sotark-play-server-production.up.railway.app/\"")
         buildConfigField("Boolean", "IS_BETA", "false")
     }
@@ -30,31 +30,18 @@ android {
         }
     }
 
-    flavorDimensions += "channel"
-    productFlavors {
-        create("stable") {
-            dimension         = "channel"
-            applicationId     = "com.sotark.play"
-            versionNameSuffix = ""
-            resValue("string", "channel_name", "Sotark Play")
-            buildConfigField("Boolean", "IS_BETA", "false")
-        }
-        create("beta") {
-            dimension         = "channel"
-            applicationId     = "com.sotark.play.beta"
-            versionNameSuffix = " Beta"
-            resValue("string", "channel_name", "Sotark Play Beta")
-            buildConfigField("Boolean", "IS_BETA", "true")
-        }
-    }
-
     buildTypes {
-        debug   { isMinifyEnabled = false }
+        debug {
+            isMinifyEnabled = false
+        }
         release {
             isMinifyEnabled   = true
             isShrinkResources = true
             signingConfig     = signingConfigs.getByName("release")
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
