@@ -32,42 +32,32 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build Beta Debug APK
-        run: ./gradlew assembleBetaDebug --no-daemon
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
 
-      - name: Upload Beta Debug APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: sotark-play-beta-debug
-          path: app/build/outputs/apk/beta/debug/app-beta-debug.apk
-          retention-days: 30
-
-      - name: Build Stable Debug APK
-        run: ./gradlew assembleStableDebug --no-daemon
-
-      - name: Upload Stable Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: sotark-play-stable-debug
-          path: app/build/outputs/apk/stable/debug/app-stable-debug.apk
+          name: sotark-play-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/sotark-play.keystore
 
-      - name: Build Stable Release APK
-        run: ./gradlew assembleStableRelease --no-daemon
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
         env:
           KEYSTORE_PATH: sotark-play.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Sign Stable Release APK
+      - name: Sign Release APK
         uses: r0adkll/sign-android-release@v1
-        id: sign_stable
+        id: sign_release
         with:
-          releaseDirectory: app/build/outputs/apk/stable/release
+          releaseDirectory: app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -75,36 +65,9 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Upload Signed Stable Release
+      - name: Upload Signed Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: sotark-play-stable-release-signed
-          path: ${{ steps.sign_stable.outputs.signedReleaseFile }}
-          retention-days: 30
-
-      - name: Build Beta Release APK
-        run: ./gradlew assembleBetaRelease --no-daemon
-        env:
-          KEYSTORE_PATH: sotark-play.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Sign Beta Release APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_beta
-        with:
-          releaseDirectory: app/build/outputs/apk/beta/release
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "35.0.0"
-
-      - name: Upload Signed Beta Release
-        uses: actions/upload-artifact@v4
-        with:
-          name: sotark-play-beta-release-signed
-          path: ${{ steps.sign_beta.outputs.signedReleaseFile }}
+          name: sotark-play-release-signed
+          path: ${{ steps.sign_release.outputs.signedReleaseFile }}
           retention-days: 30
