@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.sotark.play.BuildConfig
 import com.sotark.play.R
 import com.sotark.play.data.AppLanguage
 import com.sotark.play.data.SecretTheme
@@ -58,17 +58,15 @@ fun SettingsScreen(
     viewModel: SettingsViewModel  = hiltViewModel(),
     downloadVm: DownloadViewModel = hiltViewModel()
 ) {
-    val darkTheme           by viewModel.darkTheme.collectAsState()
-    val language            by viewModel.language.collectAsState()
-    val easterUnlocked      by viewModel.easterEggUnlocked.collectAsState()
-    val easterShown         by viewModel.easterEggShown.collectAsState()
-    val israelUnlocked      by viewModel.israelEasterEggUnlocked.collectAsState()
-    val israelShown         by viewModel.israelEasterEggShown.collectAsState()
-    val secretMenu          by viewModel.secretMenuUnlocked.collectAsState()
-    val soundEnabled        by viewModel.soundEnabled.collectAsState()
-    val hapticEnabled       by viewModel.hapticEnabled.collectAsState()
-    val secretTheme         by viewModel.secretTheme.collectAsState()
-    val ctx                 = LocalContext.current
+    val darkTheme      by viewModel.darkTheme.collectAsState()
+    val language       by viewModel.language.collectAsState()
+    val easterUnlocked by viewModel.easterEggUnlocked.collectAsState()
+    val easterShown    by viewModel.easterEggShown.collectAsState()
+    val israelUnlocked by viewModel.israelEasterEggUnlocked.collectAsState()
+    val israelShown    by viewModel.israelEasterEggShown.collectAsState()
+    val secretMenu     by viewModel.secretMenuUnlocked.collectAsState()
+    val secretTheme    by viewModel.secretTheme.collectAsState()
+    val ctx            = LocalContext.current
 
     var canInstall by remember { mutableStateOf(downloadVm.canInstallUnknownSources()) }
     val permLauncher = rememberLauncherForActivityResult(
@@ -80,12 +78,12 @@ fun SettingsScreen(
     LaunchedEffect(easterUnlocked) { if (easterUnlocked && !easterShown) showUkraineEgg = true }
     LaunchedEffect(israelUnlocked) { if (israelUnlocked && !israelShown) showIsraelEgg  = true }
 
-    val cardColor    = MaterialTheme.colorScheme.surfaceVariant
-    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val card = MaterialTheme.colorScheme.surfaceVariant
+    val sub  = MaterialTheme.colorScheme.onSurfaceVariant
 
-    val themeEntries = buildList {
+    val themes = buildList {
         if (easterUnlocked) add(ThemeEntry(SecretTheme.UKRAINIAN, R.string.ukrainian_theme, UkrainianYellow, "🇺🇦"))
-        if (israelUnlocked)  add(ThemeEntry(SecretTheme.ISRAEL,   R.string.theme_israel,    IsraelBlue,      "🇮🇱"))
+        if (israelUnlocked) add(ThemeEntry(SecretTheme.ISRAEL,    R.string.theme_israel,    IsraelBlue,      "🇮🇱"))
         add(ThemeEntry(SecretTheme.MATTE_METAL, R.string.theme_matte_metal, Color(0xFFB0BEC5), "🔩"))
         add(ThemeEntry(SecretTheme.NEON,        R.string.theme_neon,        Color(0xFF00FF88), "💚"))
         add(ThemeEntry(SecretTheme.ONYX,        R.string.theme_onyx,        Color(0xFFCFB980), "🏆"))
@@ -112,16 +110,15 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
 
-            // ── Версия ────────────────────────────────────────────────
-            SRow(cardColor, Icons.Filled.Info, stringResource(R.string.version_label)) {
-                Text(com.sotark.play.BuildConfig.VERSION_NAME,
-                    color = subTextColor, style = MaterialTheme.typography.bodyMedium)
+            // Версия
+            SRow(card, Icons.Filled.Info, stringResource(R.string.version_label)) {
+                Text(BuildConfig.VERSION_NAME, color = sub,
+                    style = MaterialTheme.typography.bodyMedium)
             }
 
-            // ── Нет разрешения установки ──────────────────────────────
+            // Нет разрешения установки
             if (!canInstall) {
-                Card(
-                    shape  = MaterialTheme.shapes.medium,
+                Card(shape = MaterialTheme.shapes.medium,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer),
                     onClick = {
@@ -129,8 +126,7 @@ fun SettingsScreen(
                             permLauncher.launch(Intent(
                                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                 Uri.parse("package:${ctx.packageName}")))
-                    }
-                ) {
+                    }) {
                     Row(Modifier.fillMaxWidth().padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -140,124 +136,94 @@ fun SettingsScreen(
                             Text(stringResource(R.string.no_install_permission),
                                 fontWeight = FontWeight.Medium)
                             Text(stringResource(R.string.tap_to_allow),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = subTextColor)
+                                style = MaterialTheme.typography.bodySmall, color = sub)
                         }
                         Icon(Icons.Filled.OpenInNew, null)
                     }
                 }
             }
 
-            // ── История ───────────────────────────────────────────────
-            SRow(cardColor, Icons.Filled.History,
+            // История
+            SRow(card, Icons.Filled.History,
                 stringResource(R.string.download_history),
                 onClick = onHistoryClick) {
-                Icon(Icons.Filled.ChevronRight, null, tint = subTextColor)
+                Icon(Icons.Filled.ChevronRight, null, tint = sub)
             }
 
             Spacer(Modifier.height(2.dp))
             SLabel(stringResource(R.string.appearance))
 
-            // ── Тёмная тема ───────────────────────────────────────────
-            SRow(cardColor, Icons.Filled.DarkMode, stringResource(R.string.dark_theme)) {
+            // Тёмная тема
+            SRow(card, Icons.Filled.DarkMode, stringResource(R.string.dark_theme)) {
                 Switch(checked = darkTheme,
                     onCheckedChange = { viewModel.toggleDarkTheme() })
             }
 
-            // ── Секретное меню тем ────────────────────────────────────
-            AnimatedVisibility(
-                visible = secretMenu || easterUnlocked || israelUnlocked,
-                enter   = expandVertically() + fadeIn(),
-                exit    = shrinkVertically() + fadeOut()
-            ) {
+            // Секретное меню тем
+            AnimatedVisibility(visible = secretMenu || easterUnlocked || israelUnlocked,
+                enter = expandVertically() + fadeIn(),
+                exit  = shrinkVertically() + fadeOut()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     SLabel(stringResource(R.string.secret_themes))
-                    themeEntries.forEach { entry ->
+                    themes.forEach { entry ->
                         val isActive = secretTheme == entry.theme
-                        Card(
-                            shape  = MaterialTheme.shapes.medium,
+                        Card(shape = MaterialTheme.shapes.medium,
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isActive)
-                                    entry.color.copy(alpha = 0.15f) else cardColor),
-                            onClick = { viewModel.setSecretTheme(entry.theme) }
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth()
+                                    entry.color.copy(alpha = 0.15f) else card),
+                            onClick = { viewModel.setSecretTheme(entry.theme) }) {
+                            Row(Modifier.fillMaxWidth()
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(entry.emoji, fontSize = 22.sp)
                                 Box(Modifier.size(20.dp).clip(CircleShape)
                                     .background(entry.color))
-                                Text(stringResource(entry.nameRes),
-                                    Modifier.weight(1f),
+                                Text(stringResource(entry.nameRes), Modifier.weight(1f),
                                     fontWeight = if (isActive) FontWeight.Bold
                                                  else FontWeight.Normal)
-                                if (isActive) {
+                                if (isActive)
                                     Icon(Icons.Filled.Check, null,
-                                        tint     = entry.color,
+                                        tint = entry.color,
                                         modifier = Modifier.size(18.dp))
-                                }
                             }
                         }
                     }
-                    if (secretTheme != SecretTheme.NONE) {
-                        TextButton(
-                            onClick  = { viewModel.setSecretTheme(SecretTheme.NONE) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Filled.Refresh, null,
-                                modifier = Modifier.size(16.dp))
+                    if (secretTheme != SecretTheme.NONE)
+                        TextButton(onClick = { viewModel.setSecretTheme(SecretTheme.NONE) },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Filled.Refresh, null, Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(stringResource(R.string.reset_theme))
                         }
-                    }
                 }
-            }
-
-            Spacer(Modifier.height(2.dp))
-            SLabel(stringResource(R.string.sound_haptic))
-
-            SRow(cardColor, Icons.Filled.VolumeUp, stringResource(R.string.sound_on)) {
-                Switch(checked = soundEnabled,
-                    onCheckedChange = { viewModel.toggleSound() })
-            }
-            SRow(cardColor, Icons.Filled.Vibration, stringResource(R.string.haptic_on)) {
-                Switch(checked = hapticEnabled,
-                    onCheckedChange = { viewModel.toggleHaptic() })
             }
 
             Spacer(Modifier.height(2.dp))
             SLabel(stringResource(R.string.language))
 
             Card(shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = cardColor)) {
+                colors = CardDefaults.cardColors(containerColor = card)) {
                 Column(Modifier.selectableGroup()) {
                     AppLanguage.values().forEachIndexed { idx, lang ->
-                        Row(
-                            Modifier.fillMaxWidth()
+                        Row(Modifier.fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                            horizontalArrangement = Arrangement.SpaceBetween) {
                             Row(verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Icon(Icons.Filled.Language, null,
                                     tint = if (language == lang)
-                                        MaterialTheme.colorScheme.primary
-                                    else subTextColor,
+                                        MaterialTheme.colorScheme.primary else sub,
                                     modifier = Modifier.size(20.dp))
                                 Text(lang.label,
                                     style = MaterialTheme.typography.bodyMedium)
                             }
-                            RadioButton(
-                                selected = language == lang,
-                                onClick  = { viewModel.setLanguage(lang) })
+                            RadioButton(selected = language == lang,
+                                onClick = { viewModel.setLanguage(lang) })
                         }
                         if (idx < AppLanguage.values().size - 1)
-                            HorizontalDivider(
-                                Modifier.padding(horizontal = 16.dp),
+                            HorizontalDivider(Modifier.padding(horizontal = 16.dp),
                                 thickness = 0.5.dp)
                     }
                 }
@@ -267,89 +233,58 @@ fun SettingsScreen(
         }
     }
 
-    // ── Пасхалка Украина ──────────────────────────────────────────
+    // Пасхалка Украина
     if (showUkraineEgg) {
         EasterEggDialog(
-            bgColor     = UkrainianBlue,
-            accentColor = UkrainianYellow,
-            imageRes    = R.drawable.easter_egg_founder,
-            emoji       = "🇺🇦",
-            titleRes    = R.string.easter_egg_title,
-            descRes     = R.string.easter_egg_desc,
-            subtitleRes = R.string.ukrainian_theme_unlocked,
-            buttonRes   = R.string.cool_button,
-            onDismiss   = { showUkraineEgg = false; viewModel.markEasterEggShown() }
+            bgColor = UkrainianBlue, accentColor = UkrainianYellow,
+            imageRes = R.drawable.easter_egg_founder, emoji = "🇺🇦",
+            titleRes = R.string.easter_egg_title, descRes = R.string.easter_egg_desc,
+            subtitleRes = R.string.ukrainian_theme_unlocked, buttonRes = R.string.cool_button,
+            onDismiss = { showUkraineEgg = false; viewModel.markEasterEggShown() }
         )
     }
 
-    // ── Пасхалка Израиль ──────────────────────────────────────────
+    // Пасхалка Израиль
     if (showIsraelEgg) {
         EasterEggDialog(
-            bgColor     = IsraelBlue,
-            accentColor = Color.White,
-            imageRes    = R.drawable.easter_egg_israel,
-            emoji       = "🇮🇱",
-            titleRes    = R.string.easter_egg_israel_title,
-            descRes     = R.string.easter_egg_israel_desc,
-            subtitleRes = R.string.israel_theme_unlocked,
-            buttonRes   = R.string.cool_button,
-            onDismiss   = { showIsraelEgg = false; viewModel.markIsraelEasterEggShown() }
+            bgColor = IsraelBlue, accentColor = Color.White,
+            imageRes = R.drawable.easter_egg_israel, emoji = "🇮🇱",
+            titleRes = R.string.easter_egg_israel_title, descRes = R.string.easter_egg_israel_desc,
+            subtitleRes = R.string.israel_theme_unlocked, buttonRes = R.string.cool_button,
+            onDismiss = { showIsraelEgg = false; viewModel.markIsraelEasterEggShown() }
         )
     }
 }
 
 @Composable
 private fun EasterEggDialog(
-    bgColor: Color,
-    accentColor: Color,
-    imageRes: Int,
-    emoji: String,
-    titleRes: Int,
-    descRes: Int,
-    subtitleRes: Int,
-    buttonRes: Int,
-    onDismiss: () -> Unit
+    bgColor: Color, accentColor: Color, imageRes: Int, emoji: String,
+    titleRes: Int, descRes: Int, subtitleRes: Int, buttonRes: Int, onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(containerColor = bgColor)) {
-            Column(
-                Modifier.padding(24.dp),
+            Column(Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(stringResource(titleRes),
-                    color        = accentColor,
-                    fontWeight   = FontWeight.ExtraBold,
-                    fontSize     = 18.sp,
-                    textAlign    = TextAlign.Center)
-                Box(
-                    Modifier.size(110.dp).clip(CircleShape)
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(titleRes), color = accentColor,
+                    fontWeight = FontWeight.ExtraBold, fontSize = 18.sp,
+                    textAlign = TextAlign.Center)
+                Box(Modifier.size(110.dp).clip(CircleShape)
                         .background(accentColor.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AsyncImage(
-                        model              = imageRes,
-                        contentDescription = null,
-                        contentScale       = ContentScale.Crop,
-                        modifier           = Modifier.fillMaxSize().clip(CircleShape)
-                    )
+                    contentAlignment = Alignment.Center) {
+                    AsyncImage(model = imageRes, contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape))
                 }
                 Text(emoji, fontSize = 36.sp)
-                Text(stringResource(descRes),
-                    color      = accentColor,
-                    fontWeight = FontWeight.Medium,
-                    textAlign  = TextAlign.Center)
-                Text(stringResource(subtitleRes),
-                    color     = accentColor.copy(alpha = 0.8f),
-                    style     = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center)
-                Button(
-                    onClick = onDismiss,
-                    colors  = ButtonDefaults.buttonColors(containerColor = accentColor)
-                ) {
-                    Text(stringResource(buttonRes),
-                        color      = bgColor,
+                Text(stringResource(descRes), color = accentColor,
+                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+                Text(stringResource(subtitleRes), color = accentColor.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                Button(onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)) {
+                    Text(stringResource(buttonRes), color = bgColor,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -359,9 +294,8 @@ private fun EasterEggDialog(
 
 @Composable
 private fun SLabel(text: String) {
-    Text(text,
-        style    = MaterialTheme.typography.labelMedium,
-        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+    Text(text, style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
 }
 
@@ -373,20 +307,15 @@ private fun SRow(
     onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit
 ) {
-    Card(
-        shape   = MaterialTheme.shapes.medium,
-        colors  = CardDefaults.cardColors(containerColor = bgColor),
-        onClick = onClick ?: {}
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment    = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+    Card(shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        onClick = onClick ?: {}) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(icon, null,
-                    tint     = MaterialTheme.colorScheme.primary,
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp))
                 Text(label, style = MaterialTheme.typography.bodyMedium)
             }
