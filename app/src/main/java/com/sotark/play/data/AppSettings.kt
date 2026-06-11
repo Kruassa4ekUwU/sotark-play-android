@@ -36,9 +36,6 @@ class AppSettings @Inject constructor(
     private val _darkTheme = MutableStateFlow(prefs.getBoolean("dark_theme", false))
     val darkTheme: StateFlow<Boolean> = _darkTheme.asStateFlow()
 
-    // ukrainianTheme теперь = secretTheme == UKRAINIAN, но оставляем для совместимости
-    val ukrainianTheme: StateFlow<Boolean> get() = _ukrainianThemeCompat
-
     private val _secretTheme = MutableStateFlow(
         SecretTheme.values().find { it.id == prefs.getString("secret_theme", "none") }
             ?: SecretTheme.NONE
@@ -48,6 +45,7 @@ class AppSettings @Inject constructor(
     private val _ukrainianThemeCompat = MutableStateFlow(
         _secretTheme.value == SecretTheme.UKRAINIAN
     )
+    val ukrainianTheme: StateFlow<Boolean> = _ukrainianThemeCompat.asStateFlow()
 
     private val _easterEggUnlocked = MutableStateFlow(prefs.getBoolean("easter_egg", false))
     val easterEggUnlocked: StateFlow<Boolean> = _easterEggUnlocked.asStateFlow()
@@ -64,42 +62,37 @@ class AppSettings @Inject constructor(
     private val _secretMenuUnlocked = MutableStateFlow(prefs.getBoolean("secret_menu", false))
     val secretMenuUnlocked: StateFlow<Boolean> = _secretMenuUnlocked.asStateFlow()
 
-    private val _soundEnabled = MutableStateFlow(prefs.getBoolean("sound_enabled", true))
-    val soundEnabled: StateFlow<Boolean> = _soundEnabled.asStateFlow()
-
-    private val _hapticEnabled = MutableStateFlow(prefs.getBoolean("haptic_enabled", true))
-    val hapticEnabled: StateFlow<Boolean> = _hapticEnabled.asStateFlow()
-
     private val _language = MutableStateFlow(
         AppLanguage.values().find { it.code == prefs.getString("language", "en") }
             ?: AppLanguage.ENGLISH
     )
     val language: StateFlow<AppLanguage> = _language.asStateFlow()
 
-    private val _darkThemeToggleCount = MutableStateFlow(prefs.getInt("dark_theme_toggle_count", 0))
+    private val _darkThemeToggleCount = MutableStateFlow(prefs.getInt("dark_toggle_count", 0))
     val darkThemeToggleCount: StateFlow<Int> = _darkThemeToggleCount.asStateFlow()
 
+    // Заглушки для совместимости с SoundManager
+    val soundEnabled  = MutableStateFlow(false)
+    val hapticEnabled = MutableStateFlow(false)
+
     fun setDarkTheme(v: Boolean) {
-        val newCount = _darkThemeToggleCount.value + 1
-        prefs.edit().putBoolean("dark_theme", v).putInt("dark_theme_toggle_count", newCount).apply()
+        val count = _darkThemeToggleCount.value + 1
+        prefs.edit().putBoolean("dark_theme", v).putInt("dark_toggle_count", count).apply()
         _darkTheme.value = v
-        _darkThemeToggleCount.value = newCount
+        _darkThemeToggleCount.value = count
     }
 
     fun resetDarkThemeToggleCount() {
-        prefs.edit().putInt("dark_theme_toggle_count", 0).apply()
+        prefs.edit().putInt("dark_toggle_count", 0).apply()
         _darkThemeToggleCount.value = 0
     }
-
-    fun setSoundEnabled(v: Boolean)  { prefs.edit().putBoolean("sound_enabled", v).apply();  _soundEnabled.value = v }
-    fun setHapticEnabled(v: Boolean) { prefs.edit().putBoolean("haptic_enabled", v).apply(); _hapticEnabled.value = v }
 
     fun unlockEasterEgg() {
         prefs.edit().putBoolean("easter_egg", true).apply()
         _easterEggUnlocked.value = true
-        // Автоматически включаем украинскую тему
         setSecretTheme(SecretTheme.UKRAINIAN)
     }
+
     fun markEasterEggShown() {
         prefs.edit().putBoolean("easter_egg_shown", true).apply()
         _easterEggShown.value = true
@@ -110,6 +103,7 @@ class AppSettings @Inject constructor(
         _israelEasterEggUnlocked.value = true
         setSecretTheme(SecretTheme.ISRAEL)
     }
+
     fun markIsraelEasterEggShown() {
         prefs.edit().putBoolean("israel_easter_egg_shown", true).apply()
         _israelEasterEggShown.value = true
@@ -126,12 +120,14 @@ class AppSettings @Inject constructor(
         _ukrainianThemeCompat.value = (t == SecretTheme.UKRAINIAN)
     }
 
-    fun setUkrainianTheme(v: Boolean) {
+    fun setUkrainianTheme(v: Boolean) =
         setSecretTheme(if (v) SecretTheme.UKRAINIAN else SecretTheme.NONE)
-    }
 
     fun setLanguage(lang: AppLanguage) {
         prefs.edit().putString("language", lang.code).apply()
         _language.value = lang
     }
+
+    fun setSoundEnabled(v: Boolean)  { soundEnabled.value  = v }
+    fun setHapticEnabled(v: Boolean) { hapticEnabled.value = v }
 }
